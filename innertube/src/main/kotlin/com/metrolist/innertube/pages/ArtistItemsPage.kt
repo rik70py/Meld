@@ -11,7 +11,7 @@ import com.metrolist.innertube.models.YTItem
 import com.metrolist.innertube.models.splitArtistsByConjunction
 import com.metrolist.innertube.models.splitBySeparator
 import com.metrolist.innertube.utils.parseTime
-import timber.log.Timber
+import com.metrolist.innertube.utils.Timber
 
 data class ArtistItemsPage(
     val title: String,

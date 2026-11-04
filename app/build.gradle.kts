@@ -317,6 +317,7 @@ dependencies {
     ksp(libs.hilt.compiler)
 
     implementation(project(":innertube"))
+    implementation(project(":spotify"))
 
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
@@ -339,3 +340,4 @@ dependencies {
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.ktor.client.mock)
 }
+

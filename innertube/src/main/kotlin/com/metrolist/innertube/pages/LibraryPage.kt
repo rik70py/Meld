@@ -13,7 +13,7 @@ import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.YTItem
 import com.metrolist.innertube.models.splitBySeparator
 import com.metrolist.innertube.utils.parseTime
-import timber.log.Timber
+import com.metrolist.innertube.utils.Timber
 
 data class LibraryPage(
     val items: List<YTItem>,
@@ -193,7 +193,7 @@ data class LibraryPage(
                             ?.content?.confirmDialogRenderer?.confirmButton?.buttonRenderer
                             ?.command?.musicDeletePrivatelyOwnedEntityCommand?.entityId
                     }
-                    timber.log.Timber.d("Parsed uploaded song: id=$videoId, entityId=$uploadEntityId")
+                    Timber.d("Parsed uploaded song: id=$videoId, entityId=$uploadEntityId")
 
                     SongItem(
                         id = videoId,

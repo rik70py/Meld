@@ -5,7 +5,7 @@ import com.metrolist.innertube.models.MusicResponsiveListItemRenderer
 import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.utils.parseTime
-import timber.log.Timber
+import com.metrolist.innertube.utils.Timber
 
 data class PlaylistPage(
     val playlist: PlaylistItem,

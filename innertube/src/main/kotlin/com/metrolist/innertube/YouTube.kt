@@ -79,7 +79,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import timber.log.Timber
+import com.metrolist.innertube.utils.Timber
 import java.io.FilterInputStream
 import java.io.InputStream
 import java.net.Proxy
