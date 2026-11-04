@@ -1,7 +1,7 @@
 <div align="center">
 <img src="fastlane/metadata/android/en-US/images/icon.png" width="160" height="160" style="display: block; margin: 0 auto"/>
 <h1>Meld</h1>
-<p>A music client that fuses Spotify and YouTube Music into one seamless experience</p>
+<p>A music client that fuses Spotify and YouTube Music into one seamless experience on Android & PC</p>
 
 [![Latest release](https://img.shields.io/github/v/release/FrancescoGrazioso/Meld?style=for-the-badge)](https://github.com/FrancescoGrazioso/Meld/releases/latest)
 [![GitHub license](https://img.shields.io/github/license/FrancescoGrazioso/Meld?style=for-the-badge)](https://github.com/FrancescoGrazioso/Meld/blob/main/LICENSE)
@@ -11,7 +11,7 @@
 
 ## What is Meld?
 
-**Meld** is an Android music client that brings together the best of Spotify and YouTube Music. It uses your Spotify account to power personalized recommendations, search, and home content — while streaming audio through YouTube Music.
+**Meld** is a cross-platform music client for **Android** and **PC (Windows Desktop)** that brings together the best of Spotify and YouTube Music. It uses your Spotify account to power personalized recommendations, search, and home content — while streaming audio through YouTube Music.
 
 The name "Meld" reflects the core idea: **melding** two music platforms into a single, unified listening experience.
 
@@ -71,11 +71,43 @@ The name "Meld" reflects the core idea: **melding** two music platforms into a s
 
 ## Download
 
+Choose your platform below:
+
+### 📱 Android Phone App
+
 <div align="center">
 <a href="https://github.com/FrancescoGrazioso/Meld/releases/latest/download/Meld.apk"><img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" alt="Get it on GitHub" height="82"></a>
 </div>
 
-> **First time here?** Tap the badge above or go to the [Releases page](https://github.com/FrancescoGrazioso/Meld/releases), then download the **Meld.apk** file and open it on your Android device. You may need to allow installation from unknown sources in your phone's settings.
+> **Android Installation:** Tap the badge above or go to the [Releases page](https://github.com/FrancescoGrazioso/Meld/releases), download the **`Meld.apk`** file, and install it on your Android phone. (Ensure installation from unknown sources is enabled in your device settings).
+
+---
+
+### 💻 PC Application (Windows Desktop)
+
+Meld PC is a native desktop music application built with Compose Multiplatform, 64-bit LibVLC hardware audio decoders, and direct Spotify session synchronization.
+
+#### 1. Prerequisites:
+- **Java 21 (JDK 21)** (e.g. Eclipse Adoptium Temurin 21)
+- **VLC Media Player 64-bit** (installed at `C:\Program Files\VideoLAN\VLC`)
+
+#### 2. Run Directly from Source:
+```powershell
+git clone https://github.com/rik70py/Meld.git
+cd Meld
+.\gradlew :desktop:run
+```
+
+#### 3. Standalone Executable / JAR:
+```powershell
+# Build and run standalone desktop JAR:
+.\gradlew :desktop:jar
+java -jar desktop/build/libs/desktop.jar
+
+# Or package native Windows MSI installer:
+.\gradlew :desktop:packageReleaseMsi
+```
+*(Pre-compiled desktop releases are hosted on [GitHub Releases](https://github.com/rik70py/Meld/releases)).*
 
 <div align="center">
 
