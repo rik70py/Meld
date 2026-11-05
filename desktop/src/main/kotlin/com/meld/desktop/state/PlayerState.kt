@@ -5,6 +5,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import com.meld.desktop.player.DesktopAudioPlayer
 import com.meld.desktop.player.DesktopTrackMatcher
+import com.meld.desktop.player.ResolvedAudio
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.spotify.models.SpotifyTrack
 import kotlinx.coroutines.CancellationException
@@ -83,11 +84,16 @@ class PlayerController(
     val snackbarHostState = SnackbarHostState()
 
     private var streamResolutionJob: Job? = null
+    private var resolveToken = 0L
     private var consecutiveFailures = 0
 
     init {
         audioPlayer.onTrackFinished = {
             handleTrackFinished()
+        }
+        audioPlayer.onPlaybackError = { errorMessage ->
+            _isResolvingStream.value = false
+            handleStreamFailure(errorMessage)
         }
     }
 
@@ -239,6 +245,7 @@ class PlayerController(
 
     private fun playTrackInternal(track: ActiveTrack) {
         _currentTrack.value = track
+        val token = ++resolveToken
 
         // Cancel previous pending resolution to avoid out-of-order race conditions
         streamResolutionJob?.cancel()
@@ -246,23 +253,26 @@ class PlayerController(
 
         streamResolutionJob = scope.launch(Dispatchers.IO) {
             try {
-                val streamUrl = when {
+                val resolvedAudio = when {
                     track.originalSongItem != null -> {
                         DesktopTrackMatcher.fetchAudioStream(track.originalSongItem.id)
+                            ?: DesktopTrackMatcher.resolveSongFallback(track.title, track.artist)
                     }
                     track.originalSpotifyTrack != null -> {
-                        DesktopTrackMatcher.resolveStream(track.originalSpotifyTrack)?.streamUrl
+                        val stream = DesktopTrackMatcher.resolveStream(track.originalSpotifyTrack)
+                        stream?.let { ResolvedAudio(it.streamUrl, it.streamHeaders) }
                     }
                     else -> {
                         DesktopTrackMatcher.fetchAudioStream(track.id)
+                            ?: DesktopTrackMatcher.resolveSongFallback(track.title, track.artist)
                     }
                 }
 
                 if (!isActive) return@launch
 
-                if (streamUrl != null) {
+                if (resolvedAudio != null) {
                     consecutiveFailures = 0
-                    audioPlayer.play(streamUrl)
+                    audioPlayer.play(resolvedAudio.url, resolvedAudio.headers)
                 } else {
                     handleStreamFailure("Failed to resolve audio stream for: ${track.title}")
                 }
@@ -274,8 +284,7 @@ class PlayerController(
                     handleStreamFailure("Playback error: ${e.message}")
                 }
             } finally {
-                // Only clear resolving state if this job is still the active one
-                if (streamResolutionJob?.isActive != true) {
+                if (token == resolveToken) {
                     _isResolvingStream.value = false
                 }
             }

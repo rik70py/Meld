@@ -43,6 +43,7 @@ class DesktopAudioPlayer(
     val isVlcAvailable: StateFlow<Boolean> = _isVlcAvailable.asStateFlow()
 
     var onTrackFinished: (() -> Unit)? = null
+    var onPlaybackError: ((String) -> Unit)? = null
 
     init {
         initVlc()
@@ -136,6 +137,9 @@ class DesktopAudioPlayer(
                     _isPlaying.value = false
                     stopProgressPolling()
                     println("[DesktopAudioPlayer] VLC state: ERROR")
+                    scope.launch(Dispatchers.Main) {
+                        onPlaybackError?.invoke("Audio playback error occurred in VLC")
+                    }
                 }
             })
 
@@ -151,10 +155,18 @@ class DesktopAudioPlayer(
         }
     }
 
-    fun play(streamUrl: String) {
+    fun play(streamUrl: String, headers: Map<String, String> = emptyMap()) {
         val player = mediaPlayer
         if (player != null) {
-            player.media().play(streamUrl)
+            val options = mutableListOf<String>()
+            headers["User-Agent"]?.let { options.add(":http-user-agent=$it") }
+            headers["Referer"]?.let { options.add(":http-referrer=$it") }
+            if (options.isNotEmpty()) {
+                println("[DesktopAudioPlayer] Starting playback with options: $options")
+                player.media().play(streamUrl, *options.toTypedArray())
+            } else {
+                player.media().play(streamUrl)
+            }
             _isPlaying.value = true
         } else {
             println("[DesktopAudioPlayer] Cannot play stream: LibVLC is not available")

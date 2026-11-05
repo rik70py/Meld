@@ -13,11 +13,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
+data class ResolvedAudio(
+    val url: String,
+    val headers: Map<String, String> = emptyMap()
+)
+
 data class ResolvedStream(
     val videoId: String,
     val title: String,
     val artist: String,
     val streamUrl: String,
+    val streamHeaders: Map<String, String> = emptyMap(),
     val durationSeconds: Int?
 )
 
@@ -28,10 +34,18 @@ data class ResolvedStream(
 object DesktopTrackMatcher {
 
     /**
-     * Resolves a direct audio stream URL from a YouTube videoId using client configurations
-     * that bypass web restrictions and botguard.
+     * Resolves a direct audio stream URL from a YouTube videoId using InnerTubeExtractor
+     * with signature cipher handling and remote player configs, falling back to direct client queries.
      */
-    suspend fun fetchAudioStream(videoId: String): String? = withContext(Dispatchers.IO) {
+    suspend fun fetchAudioStream(videoId: String): ResolvedAudio? = withContext(Dispatchers.IO) {
+        // 1. Primary: Use full InnerTubeExtractor pipeline (cipher deciphering, player configs)
+        val extracted = DesktopExtractor.extractStream(videoId)
+        if (extracted != null) {
+            println("[DesktopTrackMatcher] Resolved audio for videoId=$videoId via InnerTubeExtractor (${extracted.client})")
+            return@withContext ResolvedAudio(extracted.url, extracted.headers)
+        }
+
+        // 2. Secondary fallback: Direct client query with diagnostic logging
         val clientOrder = listOf(
             "ANDROID_VR_NO_AUTH" to YouTubeClient.ANDROID_VR_NO_AUTH,
             "ANDROID_VR_1_65_10" to YouTubeClient.ANDROID_VR_1_65_10,
@@ -61,12 +75,32 @@ object DesktopTrackMatcher {
                     ?: validAudio.maxByOrNull { it.bitrate }
             }
 
-            if (chosenFormat?.url != null) {
-                println("[DesktopTrackMatcher] Resolved audio for videoId=$videoId (itag=${chosenFormat.itag}, bitrate=${chosenFormat.bitrate})")
-                return@withContext chosenFormat.url
+            val url = chosenFormat?.url
+            if (url != null) {
+                println("[DesktopTrackMatcher] Resolved audio for videoId=$videoId via $name (itag=${chosenFormat.itag}, bitrate=${chosenFormat.bitrate})")
+                return@withContext ResolvedAudio(url)
             }
         }
         println("[DesktopTrackMatcher] Failed to resolve playable stream for videoId: $videoId")
+        null
+    }
+
+    /**
+     * Fallback for a direct SongItem whose primary videoId failed to resolve.
+     * Searches YouTube for alternative song uploads and tries the top 3 candidates.
+     */
+    suspend fun resolveSongFallback(title: String, artist: String): ResolvedAudio? = withContext(Dispatchers.IO) {
+        println("[DesktopTrackMatcher] Primary stream failed; attempting search fallback for: $artist - $title")
+        val query = "$artist - $title"
+        val searchResult = YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrNull()
+        val candidates = searchResult?.items?.filterIsInstance<SongItem>()?.take(3) ?: emptyList()
+        for (candidate in candidates) {
+            val audio = fetchAudioStream(candidate.id)
+            if (audio != null) {
+                println("[DesktopTrackMatcher] Fallback successfully resolved alternative audio: ${candidate.id}")
+                return@withContext audio
+            }
+        }
         null
     }
 
@@ -91,13 +125,14 @@ object DesktopTrackMatcher {
         }.take(3)
 
         for (candidate in sortedCandidates) {
-            val streamUrl = fetchAudioStream(candidate.id)
-            if (streamUrl != null) {
+            val audio = fetchAudioStream(candidate.id)
+            if (audio != null) {
                 return@withContext ResolvedStream(
                     videoId = candidate.id,
                     title = candidate.title,
                     artist = candidate.artists.firstOrNull()?.name ?: artistName,
-                    streamUrl = streamUrl,
+                    streamUrl = audio.url,
+                    streamHeaders = audio.headers,
                     durationSeconds = candidate.duration ?: targetDurationSec
                 )
             }
