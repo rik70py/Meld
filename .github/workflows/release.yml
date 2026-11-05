@@ -189,13 +189,36 @@ jobs:
           java-version: 21
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+      - name: Fetch libVLC (bundled into the installer)
+        shell: pwsh
+        run: |
+          $v = "3.0.21"
+          Invoke-WebRequest "https://download.videolan.org/pub/videolan/vlc/$v/win64/vlc-$v-win64.zip" -OutFile vlc.zip
+          Expand-Archive vlc.zip -DestinationPath vlc-extract -Force
+          $src = "vlc-extract\vlc-$v"
+          $dst = "desktop\resources\windows-x64\vlc"
+          New-Item -ItemType Directory -Force $dst | Out-Null
+          Copy-Item "$src\libvlc.dll","$src\libvlccore.dll" $dst
+          Copy-Item "$src\plugins" "$dst\plugins" -Recurse
+          Copy-Item "$src\COPYING.txt" "desktop\resources\windows-x64\VLC-COPYING.txt"
       - name: Package Windows Desktop MSI
         run: ./gradlew :desktop:packageMsi
+      - name: Verify libVLC is inside the package
+        shell: pwsh
+        run: |
+          $f = Get-ChildItem desktop\build\compose\binaries\main -Recurse -Filter libvlc.dll -ErrorAction SilentlyContinue
+          if (-not $f) { throw "libvlc.dll not found in packaged app" }
+          Write-Host "Verified libvlc.dll is bundled at: $($f.FullName)"
+      - name: Rename MSI
+        shell: bash
+        run: |
+          mkdir -p out
+          cp desktop/build/compose/binaries/main/msi/*.msi out/Meld-Desktop-Windows.msi
       - name: Upload Windows MSI Artifact
         uses: actions/upload-artifact@v6
         with:
           name: Meld-Desktop-Windows
-          path: desktop/build/compose/binaries/main/msi/*.msi
+          path: out/Meld-Desktop-Windows.msi
 
   create-release:
     needs: [check-version, build, build-desktop]

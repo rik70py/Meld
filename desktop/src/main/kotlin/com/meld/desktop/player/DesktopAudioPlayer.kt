@@ -52,17 +52,17 @@ class DesktopAudioPlayer(
         val appResourcesDir = System.getProperty("compose.application.resources.dir")
         val candidateDirs = listOfNotNull(
             appResourcesDir?.let { File(it, "vlc") },
-            File(System.getProperty("user.dir"), "desktop/resources/vlc"),
-            File("resources/vlc"),
-            File("vlc")
+            File(System.getProperty("user.dir"), "desktop/resources/windows-x64/vlc"),
+            File("resources/windows-x64/vlc")
         )
 
         for (dir in candidateDirs) {
-            val dll = File(dir, "libvlc.dll")
-            if (dir.exists() && dll.exists()) {
-                System.setProperty("jna.library.path", dir.absolutePath)
-                System.setProperty("VLC_PLUGIN_PATH", File(dir, "plugins").absolutePath)
-                println("[DesktopAudioPlayer] Using bundled LibVLC from: ${dir.absolutePath}")
+            if (File(dir, "libvlc.dll").exists()) {
+                val path = dir.absolutePath
+                System.setProperty("jna.library.path", path)
+                com.sun.jna.NativeLibrary.addSearchPath("libvlc", path)
+                com.sun.jna.NativeLibrary.addSearchPath("libvlccore", path)
+                println("[DesktopAudioPlayer] Using bundled LibVLC from: $path")
                 return true
             }
         }

@@ -122,7 +122,9 @@ app/src/main/cpp/coverart/
 *.har
 
 # Desktop resources and bundled native binaries
+desktop/resources/windows-x64/vlc/
 desktop/resources/vlc/
 desktop/resources/*.7z
 desktop/resources/*.zip
+
 

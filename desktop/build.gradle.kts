@@ -42,6 +42,9 @@ compose.desktop {
             copyright = "© 2026 Meld Contributors"
             vendor = "Meld"
             appResourcesRootDir.set(project.layout.projectDirectory.dir("resources"))
+            windows {
+                packageVersion = "1.0.2"
+            }
         }
     }
 }

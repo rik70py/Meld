@@ -3,9 +3,9 @@
 <h1>Meld</h1>
 <p>A music client that fuses Spotify and YouTube Music into one seamless experience on Android & PC</p>
 
-[![Latest release](https://img.shields.io/github/v/release/FrancescoGrazioso/Meld?style=for-the-badge)](https://github.com/FrancescoGrazioso/Meld/releases/latest)
-[![GitHub license](https://img.shields.io/github/license/FrancescoGrazioso/Meld?style=for-the-badge)](https://github.com/FrancescoGrazioso/Meld/blob/main/LICENSE)
-[![Downloads](https://img.shields.io/github/downloads/FrancescoGrazioso/Meld/total?style=for-the-badge)](https://github.com/FrancescoGrazioso/Meld/releases)
+[![Latest release](https://img.shields.io/github/v/release/rik70py/Meld?style=for-the-badge)](https://github.com/rik70py/Meld/releases/latest)
+[![GitHub license](https://img.shields.io/github/license/rik70py/Meld?style=for-the-badge)](https://github.com/rik70py/Meld/blob/main/LICENSE)
+[![Downloads](https://img.shields.io/github/downloads/rik70py/Meld/total?style=for-the-badge)](https://github.com/rik70py/Meld/releases)
 
 </div>
 
@@ -76,10 +76,10 @@ Choose your platform below:
 ### 📱 Android Phone App
 
 <div align="center">
-<a href="https://github.com/FrancescoGrazioso/Meld/releases/latest/download/Meld.apk"><img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" alt="Get it on GitHub" height="82"></a>
+<a href="https://github.com/rik70py/Meld/releases/latest/download/Meld.apk"><img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" alt="Get it on GitHub" height="82"></a>
 </div>
 
-> **Android Installation:** Tap the badge above or go to the [Releases page](https://github.com/FrancescoGrazioso/Meld/releases), download the **`Meld.apk`** file, and install it on your Android phone. (Ensure installation from unknown sources is enabled in your device settings).
+> **Android Installation:** Tap the badge above or go to the [Releases page](https://github.com/rik70py/Meld/releases), download the **`Meld.apk`** file, and install it on your Android phone. (Ensure installation from unknown sources is enabled in your device settings).
 
 ---
 
@@ -87,22 +87,30 @@ Choose your platform below:
 
 Meld PC is a native desktop music application built with Compose Multiplatform, 64-bit LibVLC hardware audio decoders, and direct Spotify session synchronization.
 
-#### 1. Download Installer:
-Download the **`Meld-Desktop-Windows.msi`** installer from [GitHub Releases](https://github.com/FrancescoGrazioso/Meld/releases). Run the installer and launch Meld directly from your Start Menu or Desktop.
+#### 1. Download Pre-compiled Installer:
+Download the **`Meld-Desktop-Windows.msi`** installer from [GitHub Releases](https://github.com/rik70py/Meld/releases).
+- **Bundled LibVLC**: 64-bit LibVLC is bundled directly inside the installer — no external VLC installation or setup required.
+- **Windows SmartScreen**: Since the release binary is unsigned, Windows may display a *"Windows protected your PC"* prompt. Click **More info** → **Run anyway** to proceed with installation.
+- Once installed, launch Meld directly from your Start Menu or Desktop shortcut.
 
 #### 2. Run Directly from Source:
 ```powershell
-git clone https://github.com/FrancescoGrazioso/Meld.git
+git clone https://github.com/rik70py/Meld.git
 cd Meld
 .\gradlew :desktop:run
 ```
+*Prerequisite for running from source:* Ensure 64-bit VLC is installed on your system or place LibVLC 64-bit binaries (`libvlc.dll`, `libvlccore.dll`, and `plugins/`) into `desktop/resources/windows-x64/vlc/`.
 
 #### 3. Package Native Installer:
 ```powershell
 # Package native Windows MSI installer:
 .\gradlew :desktop:packageMsi
 ```
-The output installer is generated in `desktop/build/compose/binaries/main/msi/`.
+*Prerequisites for packaging:*
+- JDK 21 (Temurin / Adoptium recommended)
+- [WiX Toolset 3.x](https://wixtoolset.org/releases/) installed and available in your `PATH` (required by `jpackage` to generate MSI installers)
+
+The generated installer is saved to `desktop/build/compose/binaries/main/msi/Meld-1.0.2.msi`.
 
 <div align="center">
 
@@ -180,7 +188,7 @@ For GitHub Actions builds, add these secrets to your repository:
 
 ### Q: How do I download and install Meld?
 
-Go to the [latest release](https://github.com/FrancescoGrazioso/Meld/releases/latest) and download the **Meld.apk** file. Open it on your Android device — you may need to allow "Install from unknown sources" in your phone's settings when prompted. You do **not** need to download the source code files.
+Go to the [latest release](https://github.com/rik70py/Meld/releases/latest) and download the **Meld.apk** file. Open it on your Android device — you may need to allow "Install from unknown sources" in your phone's settings when prompted. You do **not** need to download the source code files.
 
 ### Q: I saw a Meld APK on a third-party website, is it safe?
 
@@ -188,11 +196,11 @@ No, GitHub is the only place officially supported for Meld releases. Any other p
 
 ### Q: I saw Meld flagged by Malwarebytes or another antivirus, is it infected?
 
-No, it's a false positive. Meld is based on [Metrolist](https://github.com/metrolistgroup/metrolist) which is sometimes flagged with the same false positive. Both Meld and Metrolist are fully open-source projects using the GPL-3.0 license, with the entire source code accessible through [GitHub](https://github.com/FrancescoGrazioso/Meld).
+No, it's a false positive. Meld is based on [Metrolist](https://github.com/metrolistgroup/metrolist) which is sometimes flagged with the same false positive. Both Meld and Metrolist are fully open-source projects using the GPL-3.0 license, with the entire source code accessible through [GitHub](https://github.com/rik70py/Meld).
 
 ### Q: Is there a Meld PC app?
 
-Yes! Meld PC is available for Windows Desktop. It features a native Compose Multiplatform interface, Spotify library synchronization, 64-bit LibVLC hardware audio decoders, and full keyboard navigation. You can install it using the pre-compiled MSI installer from [GitHub Releases](https://github.com/FrancescoGrazioso/Meld/releases) or build it directly from source with `.\gradlew :desktop:packageMsi`.
+Yes! Meld PC is available for Windows Desktop. It features a native Compose Multiplatform interface, Spotify library synchronization, 64-bit LibVLC hardware audio decoders, and full keyboard navigation. You can install it using the pre-compiled MSI installer from [GitHub Releases](https://github.com/rik70py/Meld/releases) or build it directly from source with `.\gradlew :desktop:packageMsi`.
 
 ### Q: I logged into Spotify but my playlists aren't showing
 
@@ -285,6 +293,9 @@ Meld is a fork of [Metrolist](https://github.com/MetrolistGroup/Metrolist), orig
 
 ### Libraries and Integrations
 
+- [**LibVLC**](https://www.videolan.org/vlc/libvlc.html) by VideoLAN — Cross-platform multimedia framework and hardware-accelerated playback engine (LGPL v2.1)
+- [**vlcj**](https://github.com/caprica/vlcj) by Caprica Software — Java/Kotlin bindings for LibVLC (GPL-3.0)
+- [**Compose Multiplatform**](https://www.jetbrains.com/lp/compose-multiplatform/) by JetBrains — Declarative UI framework for Kotlin desktop
 - [**Kizzy**](https://github.com/dead8309/Kizzy) — Discord Rich Presence implementation
 - [**Better Lyrics**](https://better-lyrics.boidu.dev) — Time-synced lyrics with word-by-word highlighting
 - [**SimpMusic Lyrics**](https://github.com/maxrave-dev/SimpMusic) — Lyrics data through the SimpMusic Lyrics API
