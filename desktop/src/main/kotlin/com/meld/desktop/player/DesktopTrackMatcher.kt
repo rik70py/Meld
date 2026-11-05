@@ -2,7 +2,10 @@ package com.meld.desktop.player
 
 import com.meld.desktop.state.DesktopSettings
 import com.metrolist.innertube.YouTube
+import com.metrolist.innertube.models.AlbumItem
+import com.metrolist.innertube.models.ArtistItem
 import com.metrolist.innertube.models.SongItem
+import com.metrolist.innertube.models.YTItem
 import com.metrolist.innertube.models.YouTubeClient
 import com.metrolist.spotify.Spotify
 import com.metrolist.spotify.models.SpotifyTrack
@@ -95,9 +98,26 @@ object DesktopTrackMatcher {
         )
     }
 
-    suspend fun searchYouTubeDirect(query: String, filter: YouTube.SearchFilter? = null): List<SongItem> = withContext(Dispatchers.IO) {
+    /**
+     * Searches YouTube Music and returns all matching items (Songs, Artists, Albums).
+     */
+    suspend fun searchYouTubeDirect(query: String, filter: YouTube.SearchFilter? = null): List<YTItem> = withContext(Dispatchers.IO) {
         val result = YouTube.search(query, filter ?: YouTube.SearchFilter.FILTER_SONG).getOrNull()
-        result?.items?.filterIsInstance<SongItem>() ?: emptyList()
+        result?.items ?: emptyList()
+    }
+
+    /**
+     * Resolves playable songs for an album or artist item.
+     */
+    suspend fun fetchAlbumSongs(album: AlbumItem): List<SongItem> = withContext(Dispatchers.IO) {
+        val page = YouTube.album(album.browseId).getOrNull()
+        page?.songs ?: emptyList()
+    }
+
+    suspend fun fetchArtistTopSongs(artist: ArtistItem): List<SongItem> = withContext(Dispatchers.IO) {
+        val page = YouTube.artist(artist.id).getOrNull()
+        val songs = page?.sections?.flatMap { it.items }?.filterIsInstance<SongItem>().orEmpty()
+        if (songs.isNotEmpty()) songs else searchYouTubeDirect(artist.title, YouTube.SearchFilter.FILTER_SONG).filterIsInstance<SongItem>()
     }
 
     /**

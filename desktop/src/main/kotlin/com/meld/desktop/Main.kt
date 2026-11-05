@@ -23,7 +23,6 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
@@ -35,7 +34,6 @@ import com.meld.desktop.ui.components.DesktopNavScreen
 import com.meld.desktop.ui.components.LoginDialog
 import com.meld.desktop.ui.components.PlayerBar
 import com.meld.desktop.ui.components.Sidebar
-import com.meld.desktop.ui.components.formatMs
 import com.meld.desktop.ui.screens.HomeView
 import com.meld.desktop.ui.screens.LikedSongsView
 import com.meld.desktop.ui.screens.SearchView
@@ -49,16 +47,69 @@ import java.net.URI
 fun main() = application {
     val windowState = rememberWindowState(width = 1240.dp, height = 820.dp)
 
+    val scope = rememberCoroutineScope()
+    val audioPlayer = remember { DesktopAudioPlayer(scope) }
+    val playerController = remember { PlayerController(audioPlayer, scope) }
+    val spotifySession = remember { SpotifySession(scope) }
+
+    var currentScreen by remember { mutableStateOf(DesktopNavScreen.HOME) }
+    var showLoginDialog by remember { mutableStateOf(false) }
+
+    val isVlcAvailable by audioPlayer.isVlcAvailable.collectAsState()
+    val isQueueOpen by playerController.isQueueDrawerOpen.collectAsState()
+    val isInputFocused by playerController.isInputFocused.collectAsState()
+
+    DisposableEffect(Unit) {
+        onDispose {
+            audioPlayer.release()
+        }
+    }
+
     Window(
         onCloseRequest = ::exitApplication,
         state = windowState,
         title = "Meld",
-        onKeyEvent = { keyEvent ->
-            if (keyEvent.type == KeyEventType.KeyDown) {
+        onPreviewKeyEvent = { event ->
+            if (event.type == KeyEventType.KeyDown) {
                 when {
-                    keyEvent.isCtrlPressed && keyEvent.key == Key.F -> {
-                        // Global Ctrl+F handled in AppState
-                        false
+                    // Global Ctrl+F always switches to search
+                    event.isCtrlPressed && event.key == Key.F -> {
+                        currentScreen = DesktopNavScreen.SEARCH
+                        true
+                    }
+                    // Media controls only trigger when not actively typing in an input field
+                    !isInputFocused -> {
+                        when {
+                            event.key == Key.Spacebar -> {
+                                audioPlayer.togglePlayPause()
+                                true
+                            }
+                            event.isCtrlPressed && event.key == Key.DirectionRight -> {
+                                playerController.playNext()
+                                true
+                            }
+                            event.isCtrlPressed && event.key == Key.DirectionLeft -> {
+                                playerController.playPrevious()
+                                true
+                            }
+                            event.key == Key.DirectionRight -> {
+                                audioPlayer.seekBy(5000L) // seek +5s
+                                true
+                            }
+                            event.key == Key.DirectionLeft -> {
+                                audioPlayer.seekBy(-5000L) // seek -5s
+                                true
+                            }
+                            event.key == Key.DirectionUp -> {
+                                audioPlayer.adjustVolume(5) // volume +5%
+                                true
+                            }
+                            event.key == Key.DirectionDown -> {
+                                audioPlayer.adjustVolume(-5) // volume -5%
+                                true
+                            }
+                            else -> false
+                        }
                     }
                     else -> false
                 }
@@ -69,69 +120,11 @@ fun main() = application {
     ) {
         window.minimumSize = Dimension(960, 640)
 
-        val scope = rememberCoroutineScope()
-        val audioPlayer = remember { DesktopAudioPlayer(scope) }
-        val playerController = remember { PlayerController(audioPlayer, scope) }
-        val spotifySession = remember { SpotifySession(scope) }
-
-        var currentScreen by remember { mutableStateOf(DesktopNavScreen.HOME) }
-        var showLoginDialog by remember { mutableStateOf(false) }
-
-        val isVlcAvailable by audioPlayer.isVlcAvailable.collectAsState()
-        val isQueueOpen by playerController.isQueueDrawerOpen.collectAsState()
-
-        DisposableEffect(Unit) {
-            onDispose {
-                audioPlayer.release()
-            }
-        }
-
         MeldDesktopTheme {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background)
-                    .onKeyEvent { event ->
-                        if (event.type == KeyEventType.KeyDown) {
-                            when {
-                                event.key == Key.Spacebar -> {
-                                    audioPlayer.togglePlayPause()
-                                    true
-                                }
-                                event.isCtrlPressed && event.key == Key.DirectionRight -> {
-                                    playerController.playNext()
-                                    true
-                                }
-                                event.isCtrlPressed && event.key == Key.DirectionLeft -> {
-                                    playerController.playPrevious()
-                                    true
-                                }
-                                event.key == Key.DirectionRight -> {
-                                    audioPlayer.seekBy(5000L) // seek +5s
-                                    true
-                                }
-                                event.key == Key.DirectionLeft -> {
-                                    audioPlayer.seekBy(-5000L) // seek -5s
-                                    true
-                                }
-                                event.key == Key.DirectionUp -> {
-                                    audioPlayer.adjustVolume(5) // volume +5%
-                                    true
-                                }
-                                event.key == Key.DirectionDown -> {
-                                    audioPlayer.adjustVolume(-5) // volume -5%
-                                    true
-                                }
-                                event.isCtrlPressed && event.key == Key.F -> {
-                                    currentScreen = DesktopNavScreen.SEARCH
-                                    true
-                                }
-                                else -> false
-                            }
-                        } else {
-                            false
-                        }
-                    }
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     // Missing LibVLC Notification Header Banner
@@ -245,6 +238,7 @@ fun main() = application {
                 if (showLoginDialog) {
                     LoginDialog(
                         spotifySession = spotifySession,
+                        onInputFocusChanged = { playerController.isInputFocused.value = it },
                         onDismiss = { showLoginDialog = false }
                     )
                 }

@@ -10,7 +10,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.meld.desktop.state.DesktopSettings
@@ -18,40 +17,50 @@ import com.meld.desktop.state.DesktopSettings
 // Metrolist Authentic Signature Brand Colors
 val MeldPrimary = Color(0xFFED5564) // Coral Red
 val MeldSecondary = Color(0xFFFF7A8A)
-val MeldPrimaryContainer = Color(0xFF381518)
+
+// Dark theme container colors
+val MeldDarkPrimaryContainer = Color(0xFF381518)
+val MeldDarkOnPrimaryContainer = Color(0xFFFFDADB)
 val MeldOnPrimary = Color.White
-val MeldOnPrimaryContainer = Color(0xFFFFDADB)
+
+// Light theme dedicated container colors
+val MeldLightPrimaryContainer = Color(0xFFFFDAD9)
+val MeldLightOnPrimaryContainer = Color(0xFF410006)
 
 // Pure AMOLED Black palette
 val MeldPureBlack = Color(0xFF000000)
 val MeldPureSurface = Color(0xFF0D0D0D)
 val MeldPureSurfaceVariant = Color(0xFF181818)
-val MeldPureSurfaceElevated = Color(0xFF141414)
 
 // Standard Dark palette
 val MeldDarkBackground = Color(0xFF121212)
 val MeldDarkSurface = Color(0xFF1E1E1E)
 val MeldDarkSurfaceVariant = Color(0xFF282828)
-val MeldDarkSurfaceElevated = Color(0xFF222222)
 val MeldDarkOnBackground = Color(0xFFF4F4F4)
 val MeldDarkOnSurface = Color(0xFFEEEEEE)
 val MeldDarkOnSurfaceVariant = Color(0xFFAAAAAA)
 val MeldDarkOutline = Color(0xFF2E2E2E)
 
-// Light palette
-val MeldLightBackground = Color(0xFFF9F9FB)
+// High-contrast Light palette
+val MeldLightBackground = Color(0xFFF6F7F9)
 val MeldLightSurface = Color(0xFFFFFFFF)
-val MeldLightSurfaceVariant = Color(0xFFEFEFEF)
-val MeldLightSurfaceElevated = Color(0xFFF4F4F6)
-val MeldLightOnBackground = Color(0xFF1A1A1A)
-val MeldLightOnSurface = Color(0xFF202020)
-val MeldLightOnSurfaceVariant = Color(0xFF6E6E6E)
-val MeldLightOutline = Color(0xFFE2E2E2)
+val MeldLightSurfaceVariant = Color(0xFFECEFF2)
+val MeldLightOnBackground = Color(0xFF141517)
+val MeldLightOnSurface = Color(0xFF1C1E21)
+val MeldLightOnSurfaceVariant = Color(0xFF656970)
+val MeldLightOutline = Color(0xFFD6DBE1)
 
-// Common surfaces for quick reference
 val MeldSurfaceElevated: Color
     @Composable
-    get() = MaterialTheme.colorScheme.surfaceVariant
+    get() {
+        val themeMode by DesktopSettings.themeMode.collectAsState()
+        val isDark = when (themeMode) {
+            "Light" -> false
+            "Dark" -> true
+            else -> isSystemInDarkTheme()
+        }
+        return if (isDark) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
+    }
 
 val MeldTypography = Typography(
     headlineMedium = TextStyle(
@@ -117,8 +126,8 @@ fun MeldDesktopTheme(content: @Composable () -> Unit) {
             darkColorScheme(
                 primary = MeldPrimary,
                 onPrimary = MeldOnPrimary,
-                primaryContainer = MeldPrimaryContainer,
-                onPrimaryContainer = MeldOnPrimaryContainer,
+                primaryContainer = MeldDarkPrimaryContainer,
+                onPrimaryContainer = MeldDarkOnPrimaryContainer,
                 secondary = MeldSecondary,
                 background = MeldPureBlack,
                 onBackground = MeldDarkOnBackground,
@@ -132,8 +141,8 @@ fun MeldDesktopTheme(content: @Composable () -> Unit) {
             darkColorScheme(
                 primary = MeldPrimary,
                 onPrimary = MeldOnPrimary,
-                primaryContainer = MeldPrimaryContainer,
-                onPrimaryContainer = MeldOnPrimaryContainer,
+                primaryContainer = MeldDarkPrimaryContainer,
+                onPrimaryContainer = MeldDarkOnPrimaryContainer,
                 secondary = MeldSecondary,
                 background = MeldDarkBackground,
                 onBackground = MeldDarkOnBackground,
@@ -148,8 +157,8 @@ fun MeldDesktopTheme(content: @Composable () -> Unit) {
         lightColorScheme(
             primary = MeldPrimary,
             onPrimary = MeldOnPrimary,
-            primaryContainer = MeldPrimaryContainer,
-            onPrimaryContainer = MeldOnPrimaryContainer,
+            primaryContainer = MeldLightPrimaryContainer,
+            onPrimaryContainer = MeldLightOnPrimaryContainer,
             secondary = MeldSecondary,
             background = MeldLightBackground,
             onBackground = MeldLightOnBackground,

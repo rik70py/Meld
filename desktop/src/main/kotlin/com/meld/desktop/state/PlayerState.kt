@@ -5,11 +5,14 @@ import com.meld.desktop.player.DesktopAudioPlayer
 import com.meld.desktop.player.DesktopTrackMatcher
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.spotify.models.SpotifyTrack
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 enum class RepeatMode {
@@ -74,7 +77,11 @@ class PlayerController(
     private val _isQueueDrawerOpen = MutableStateFlow(false)
     val isQueueDrawerOpen: StateFlow<Boolean> = _isQueueDrawerOpen.asStateFlow()
 
+    val isInputFocused = MutableStateFlow(false)
     val snackbarHostState = SnackbarHostState()
+
+    private var streamResolutionJob: Job? = null
+    private var consecutiveFailures = 0
 
     init {
         audioPlayer.onTrackFinished = {
@@ -126,10 +133,17 @@ class PlayerController(
     fun playTrack(track: ActiveTrack, newQueue: List<ActiveTrack>? = null) {
         if (newQueue != null) {
             _queue.value = newQueue
-            _queueIndex.value = newQueue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
-        } else if (!_queue.value.any { it.id == track.id }) {
-            _queue.value = _queue.value + track
-            _queueIndex.value = _queue.value.lastIndex
+            val idx = newQueue.indexOfFirst { it.id == track.id }
+            _queueIndex.value = if (idx >= 0) idx else 0
+        } else {
+            val existingIdx = _queue.value.indexOfFirst { it.id == track.id }
+            if (existingIdx >= 0) {
+                _queueIndex.value = existingIdx
+            } else {
+                // When played without a queue, replace old queue with a fresh single-track queue
+                _queue.value = listOf(track)
+                _queueIndex.value = 0
+            }
         }
         playTrackInternal(track)
     }
@@ -184,7 +198,6 @@ class PlayerController(
     }
 
     fun playPrevious() {
-        // If track played > 3 seconds, restart it; otherwise go to previous
         if (audioPlayer.positionMs.value > 3000L) {
             audioPlayer.seekTo(0L)
             return
@@ -211,7 +224,6 @@ class PlayerController(
         val current = _isShuffle.value
         _isShuffle.value = !current
         if (!current && _queue.value.isNotEmpty()) {
-            // Shuffle remaining queue items
             val curTrack = _currentTrack.value
             val remaining = _queue.value.filter { it.id != curTrack?.id }.shuffled()
             _queue.value = (if (curTrack != null) listOf(curTrack) else emptyList()) + remaining
@@ -226,8 +238,11 @@ class PlayerController(
     private fun playTrackInternal(track: ActiveTrack) {
         _currentTrack.value = track
 
-        scope.launch(Dispatchers.IO) {
-            _isResolvingStream.value = true
+        // Cancel previous pending resolution to avoid out-of-order race conditions
+        streamResolutionJob?.cancel()
+        _isResolvingStream.value = true
+
+        streamResolutionJob = scope.launch(Dispatchers.IO) {
             try {
                 val streamUrl = when {
                     track.originalSongItem != null -> {
@@ -237,23 +252,43 @@ class PlayerController(
                         DesktopTrackMatcher.resolveStream(track.originalSpotifyTrack)?.streamUrl
                     }
                     else -> {
-                        // Attempt fallback resolution by searching title + artist
                         DesktopTrackMatcher.fetchAudioStream(track.id)
                     }
                 }
 
+                if (!isActive) return@launch
+
                 if (streamUrl != null) {
+                    consecutiveFailures = 0
                     audioPlayer.play(streamUrl)
                 } else {
-                    notify("Failed to resolve audio stream for: ${track.title}")
-                    if (DesktopSettings.autoPlayNext.value) {
-                        playNext()
-                    }
+                    handleStreamFailure("Failed to resolve audio stream for: ${track.title}")
                 }
+            } catch (e: CancellationException) {
+                // Job was cancelled because user clicked another track; safely ignore
+                throw e
             } catch (e: Exception) {
-                notify("Playback error: ${e.message}")
+                if (isActive) {
+                    handleStreamFailure("Playback error: ${e.message}")
+                }
             } finally {
-                _isResolvingStream.value = false
+                // Only clear resolving state if this job is still the active one
+                if (streamResolutionJob?.isActive != true) {
+                    _isResolvingStream.value = false
+                }
+            }
+        }
+    }
+
+    private fun handleStreamFailure(message: String) {
+        consecutiveFailures++
+        if (consecutiveFailures >= 3) {
+            consecutiveFailures = 0
+            notify("Multiple streams failed to load. Auto-advance stopped.")
+        } else {
+            notify(message)
+            if (DesktopSettings.autoPlayNext.value) {
+                playNext()
             }
         }
     }

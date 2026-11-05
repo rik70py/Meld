@@ -1,7 +1,6 @@
 package com.meld.desktop.ui.components
 
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -26,7 +25,6 @@ import coil3.compose.AsyncImage
 import com.meld.desktop.state.PlayerController
 import com.meld.desktop.state.RepeatMode
 import com.meld.desktop.ui.theme.MeldPrimary
-import com.meld.desktop.ui.theme.MeldSecondary
 
 @Composable
 fun PlayerBar(
@@ -45,9 +43,11 @@ fun PlayerBar(
 
     var isLiked by remember { mutableStateOf(false) }
     var previousVolume by remember { mutableIntStateOf(100) }
+    var draggingProgress by remember { mutableStateOf<Float?>(null) }
 
     val totalDuration = if (durationMs > 0) durationMs else (currentTrack?.durationMs ?: 1L)
-    val progress = (positionMs.toFloat() / totalDuration.toFloat()).coerceIn(0f, 1f)
+    val actualProgress = (positionMs.toFloat() / totalDuration.toFloat()).coerceIn(0f, 1f)
+    val displayProgress = draggingProgress ?: actualProgress
 
     Surface(
         color = MaterialTheme.colorScheme.surface,
@@ -133,7 +133,7 @@ fun PlayerBar(
                 }
             }
 
-            // 2. Center: Controls & Proper Hover-Expanding Seek Bar
+            // 2. Center: Controls & Drag-Debounced Seek Bar
             Column(
                 modifier = Modifier.weight(2f),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -232,13 +232,14 @@ fun PlayerBar(
                 val seekInteractionSource = remember { MutableInteractionSource() }
                 val isSeekHovered by seekInteractionSource.collectIsHoveredAsState()
                 val sliderHeight by animateDpAsState(if (isSeekHovered) 6.dp else 4.dp)
+                val currentDisplayMs = draggingProgress?.let { (it * totalDuration).toLong() } ?: positionMs
 
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        formatMs(positionMs),
+                        formatMs(currentDisplayMs),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.width(38.dp)
@@ -253,16 +254,24 @@ fun PlayerBar(
                         contentAlignment = Alignment.Center
                     ) {
                         Slider(
-                            value = progress,
+                            value = displayProgress,
                             onValueChange = { newProgress ->
-                                val targetMs = (newProgress * totalDuration).toLong()
-                                playerController.audioPlayer.seekTo(targetMs)
+                                // Update locally while dragging - zero stutter
+                                draggingProgress = newProgress
+                            },
+                            onValueChangeFinished = {
+                                // Dispatch seek to audio player only once when user releases
+                                draggingProgress?.let { targetProgress ->
+                                    val targetMs = (targetProgress * totalDuration).toLong()
+                                    playerController.audioPlayer.seekTo(targetMs)
+                                    draggingProgress = null
+                                }
                             },
                             interactionSource = seekInteractionSource,
                             modifier = Modifier.fillMaxWidth().height(sliderHeight + 14.dp),
                             colors = SliderDefaults.colors(
                                 activeTrackColor = MeldPrimary,
-                                thumbColor = if (isSeekHovered) MeldPrimary else Color.Transparent,
+                                thumbColor = if (isSeekHovered || draggingProgress != null) MeldPrimary else Color.Transparent,
                                 inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
                             )
                         )
@@ -283,7 +292,6 @@ fun PlayerBar(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Queue Drawer Toggle Button
                 IconButton(
                     onClick = { playerController.toggleQueueDrawer() },
                     modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
@@ -298,7 +306,6 @@ fun PlayerBar(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // Mute / Unmute Button
                 val volumeIcon = when {
                     volume == 0 -> Icons.Default.VolumeMute
                     volume < 50 -> Icons.Default.VolumeDown

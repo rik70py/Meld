@@ -11,12 +11,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.meld.desktop.auth.DesktopSpotifyAuth
 import com.meld.desktop.state.SpotifySession
@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun LoginDialog(
     spotifySession: SpotifySession,
+    onInputFocusChanged: (Boolean) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     var spDcInput by remember { mutableStateOf("") }
@@ -41,12 +42,16 @@ fun LoginDialog(
 
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) {
+            onInputFocusChanged(false)
             onDismiss()
         }
     }
 
     Dialog(onDismissRequest = {
-        if (!isDirectLoggingIn && !isLoading) onDismiss()
+        if (!isDirectLoggingIn && !isLoading) {
+            onInputFocusChanged(false)
+            onDismiss()
+        }
     }) {
         Surface(
             shape = RoundedCornerShape(20.dp),
@@ -198,7 +203,9 @@ fun LoginDialog(
                         onValueChange = { spDcInput = it },
                         label = { Text("sp_dc Cookie") },
                         placeholder = { Text("AQB...") },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { onInputFocusChanged(it.isFocused) },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MeldPrimary,
@@ -224,7 +231,10 @@ fun LoginDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(
-                        onClick = onDismiss,
+                        onClick = {
+                            onInputFocusChanged(false)
+                            onDismiss()
+                        },
                         enabled = !isDirectLoggingIn,
                         modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
                     ) {

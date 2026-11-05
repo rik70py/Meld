@@ -8,10 +8,13 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Search
@@ -20,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -34,8 +38,13 @@ import com.meld.desktop.state.toActiveTrack
 import com.meld.desktop.ui.components.formatMs
 import com.meld.desktop.ui.theme.MeldPrimary
 import com.metrolist.innertube.YouTube
+import com.metrolist.innertube.models.AlbumItem
+import com.metrolist.innertube.models.ArtistItem
 import com.metrolist.innertube.models.SongItem
+import com.metrolist.innertube.models.YTItem
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun SearchView(
@@ -44,8 +53,9 @@ fun SearchView(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("All") }
-    var searchResults by remember { mutableStateOf<List<SongItem>>(emptyList()) }
+    var searchResults by remember { mutableStateOf<List<YTItem>>(emptyList()) }
     var isSearching by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     val filterChips = listOf("All", "Songs", "Artists", "Albums")
 
@@ -60,10 +70,12 @@ fun SearchView(
                     "Songs" -> YouTube.SearchFilter.FILTER_SONG
                     "Artists" -> YouTube.SearchFilter.FILTER_ARTIST
                     "Albums" -> YouTube.SearchFilter.FILTER_ALBUM
-                    else -> YouTube.SearchFilter.FILTER_SONG
+                    else -> null // All
                 }
                 val results = DesktopTrackMatcher.searchYouTubeDirect(query, filter)
                 searchResults = results
+            } catch (_: CancellationException) {
+                // User typed another character, cleanly cancelled
             } catch (e: Exception) {
                 println("[SearchView] Search error: ${e.message}")
             } finally {
@@ -88,7 +100,7 @@ fun SearchView(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Search Input Bar
+        // Search Input Bar with focus tracking so global shortcuts are not intercepted
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
@@ -113,7 +125,11 @@ fun SearchView(
                     }
                 }
             },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { focusState ->
+                    playerController.isInputFocused.value = focusState.isFocused
+                },
             singleLine = true,
             shape = RoundedCornerShape(28.dp),
             colors = OutlinedTextFieldDefaults.colors(
@@ -172,23 +188,62 @@ fun SearchView(
                 )
             }
         } else if (searchResults.isNotEmpty()) {
-            val activeQueue = remember(searchResults) { searchResults.map { it.toActiveTrack() } }
+            val songsInResults = remember(searchResults) { searchResults.filterIsInstance<SongItem>() }
+            val songsActiveQueue = remember(songsInResults) { songsInResults.map { it.toActiveTrack() } }
 
             LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                itemsIndexed(searchResults) { index, song ->
-                    SearchResultRow(
-                        index = index + 1,
-                        song = song,
-                        onPlay = {
-                            playerController.playQueue(activeQueue, index)
-                        },
-                        onAddToQueue = {
-                            playerController.addToQueue(song.toActiveTrack())
+                itemsIndexed(searchResults) { index, item ->
+                    when (item) {
+                        is SongItem -> {
+                            val songIdx = songsInResults.indexOf(item)
+                            SearchResultSongRow(
+                                index = index + 1,
+                                song = item,
+                                onPlay = {
+                                    playerController.playQueue(songsActiveQueue, songIdx.coerceAtLeast(0))
+                                },
+                                onAddToQueue = {
+                                    playerController.addToQueue(item.toActiveTrack())
+                                }
+                            )
                         }
-                    )
+                        is ArtistItem -> {
+                            SearchResultArtistRow(
+                                artist = item,
+                                onPlay = {
+                                    scope.launch {
+                                        playerController.notify("Loading tracks for ${item.title}...")
+                                        val artistSongs = DesktopTrackMatcher.fetchArtistTopSongs(item)
+                                        if (artistSongs.isNotEmpty()) {
+                                            playerController.playQueue(artistSongs.map { it.toActiveTrack() }, 0)
+                                        } else {
+                                            playerController.notify("No tracks found for artist.")
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                        is AlbumItem -> {
+                            SearchResultAlbumRow(
+                                album = item,
+                                onPlay = {
+                                    scope.launch {
+                                        playerController.notify("Loading tracks for ${item.title}...")
+                                        val albumSongs = DesktopTrackMatcher.fetchAlbumSongs(item)
+                                        if (albumSongs.isNotEmpty()) {
+                                            playerController.playQueue(albumSongs.map { it.toActiveTrack() }, 0)
+                                        } else {
+                                            playerController.notify("No tracks found for album.")
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                        else -> {}
+                    }
                 }
             }
         } else {
@@ -206,7 +261,7 @@ fun SearchView(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Search across millions of songs and artists",
+                        text = "Search across millions of songs, artists, and albums",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -217,7 +272,7 @@ fun SearchView(
 }
 
 @Composable
-private fun SearchResultRow(
+private fun SearchResultSongRow(
     index: Int,
     song: SongItem,
     onPlay: () -> Unit,
@@ -314,6 +369,159 @@ private fun SearchResultRow(
                     tint = if (isHovered) MeldPrimary else Color.Transparent,
                     modifier = Modifier.size(18.dp)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchResultArtistRow(
+    artist: ArtistItem,
+    onPlay: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
+    Surface(
+        color = if (isHovered) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f) else Color.Transparent,
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .hoverable(interactionSource)
+            .clickable(onClick = onPlay)
+            .pointerHoverIcon(PointerIcon.Hand)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (!artist.thumbnail.isNullOrBlank()) {
+                AsyncImage(
+                    model = artist.thumbnail,
+                    contentDescription = null,
+                    modifier = Modifier.size(44.dp).clip(CircleShape)
+                )
+            } else {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = CircleShape,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Person, contentDescription = null, tint = MeldPrimary, modifier = Modifier.size(24.dp))
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = artist.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "Artist",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MeldPrimary
+                )
+            }
+
+            Surface(
+                color = if (isHovered) MeldPrimary else MaterialTheme.colorScheme.surfaceVariant,
+                shape = CircleShape,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.PlayArrow,
+                        contentDescription = "Play Artist",
+                        tint = if (isHovered) Color.White else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchResultAlbumRow(
+    album: AlbumItem,
+    onPlay: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
+    Surface(
+        color = if (isHovered) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f) else Color.Transparent,
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .hoverable(interactionSource)
+            .clickable(onClick = onPlay)
+            .pointerHoverIcon(PointerIcon.Hand)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (!album.thumbnail.isNullOrBlank()) {
+                AsyncImage(
+                    model = album.thumbnail,
+                    contentDescription = null,
+                    modifier = Modifier.size(44.dp).clip(RoundedCornerShape(6.dp))
+                )
+            } else {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Album, contentDescription = null, tint = MeldPrimary, modifier = Modifier.size(24.dp))
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = album.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                val artistText = album.artists?.joinToString(", ") { it.name }.orEmpty()
+                val yearText = album.year?.toString()
+                val subtitle = listOfNotNull(artistText.ifBlank { null }, yearText, "Album").joinToString(" • ")
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Surface(
+                color = if (isHovered) MeldPrimary else MaterialTheme.colorScheme.surfaceVariant,
+                shape = CircleShape,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.PlayArrow,
+                        contentDescription = "Play Album",
+                        tint = if (isHovered) Color.White else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }
