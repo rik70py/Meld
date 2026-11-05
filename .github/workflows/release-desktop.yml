@@ -63,15 +63,18 @@ jobs:
             echo "C:\Program Files (x86)\WiX Toolset v3.14\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           }
 
-      - name: Package Windows Desktop MSI
-        run: ./gradlew :desktop:packageMsi
+      - name: Package Windows Desktop Distributable & MSI
+        run: ./gradlew :desktop:createDistributable :desktop:packageMsi
 
       - name: Verify libVLC is inside the package
         shell: pwsh
         run: |
           $f = Get-ChildItem desktop\build\compose\binaries\main -Recurse -Filter libvlc.dll -ErrorAction SilentlyContinue
-          if (-not $f) { throw "libvlc.dll not found in packaged app" }
+          if (-not $f) { throw "libvlc.dll not found in packaged app distribution" }
           Write-Host "Verified libvlc.dll is bundled at: $($f.FullName)"
+          $msi = Get-ChildItem desktop\build\compose\binaries\main\msi -Filter *.msi -ErrorAction SilentlyContinue
+          if (-not $msi) { throw "MSI installer was not generated" }
+          Write-Host "Verified MSI generated: $($msi.FullName) ($([math]::Round($msi.Length / 1MB, 2)) MB)"
 
       - name: Stage MSI
         shell: pwsh
