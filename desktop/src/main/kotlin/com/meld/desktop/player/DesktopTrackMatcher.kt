@@ -49,11 +49,9 @@ object DesktopTrackMatcher {
             val validAudio = formats.filter { it.mimeType.startsWith("audio/") && !it.url.isNullOrBlank() }
 
             val chosenFormat = if (preferStandard) {
-                // Prefer AAC / m4a (itag 140) or moderate bitrate
                 validAudio.find { it.mimeType.contains("mp4") || it.itag == 140 }
                     ?: validAudio.minByOrNull { it.bitrate }
             } else {
-                // High bitrate Opus (itag 251) preferred
                 validAudio.find { it.itag == 251 }
                     ?: validAudio.maxByOrNull { it.bitrate }
             }
@@ -99,11 +97,23 @@ object DesktopTrackMatcher {
     }
 
     /**
-     * Searches YouTube Music and returns all matching items (Songs, Artists, Albums).
+     * Searches YouTube Music across categories (mixed results when filter is null, or category specific).
      */
     suspend fun searchYouTubeDirect(query: String, filter: YouTube.SearchFilter? = null): List<YTItem> = withContext(Dispatchers.IO) {
-        val result = YouTube.search(query, filter ?: YouTube.SearchFilter.FILTER_SONG).getOrNull()
-        result?.items ?: emptyList()
+        if (filter != null) {
+            val result = YouTube.search(query, filter).getOrNull()
+            result?.items ?: emptyList()
+        } else {
+            // When filter is null ("All"), search summary retrieves songs, artists, and albums
+            val summary = YouTube.searchSummary(query).getOrNull()
+            val allItems = summary?.summaries?.flatMap { it.items }
+            if (!allItems.isNullOrEmpty()) {
+                allItems
+            } else {
+                val fallback = YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrNull()
+                fallback?.items ?: emptyList()
+            }
+        }
     }
 
     /**
