@@ -4,11 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version (e.g. 1.0.2)'
+        description: 'Desktop MSI Version (numeric: e.g. 1.0.2 or 1.0.3)'
         required: true
         default: '1.0.2'
+      tag:
+        description: 'Release Tag (leave empty to use v<version>, or specify e.g. v0.9.2 to join Android release)'
+        required: false
+        default: ''
       draft:
-        description: 'Create as draft release'
+        description: 'Create as draft release (if creating a new release)'
         type: boolean
         default: true
 
@@ -59,12 +63,21 @@ jobs:
             Write-Host "Added WiX v3.14 to PATH"
           } else {
             Write-Host "Installing WiX Toolset via Chocolatey..."
-            choco install wixtoolset --version 3.14.0.1703 -y --no-progress
-            echo "C:\Program Files (x86)\WiX Toolset v3.14\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            choco install wixtoolset -y --no-progress
+            $wixDir = Get-ChildItem "C:\Program Files (x86)" -Filter "WiX Toolset*" -Directory -ErrorAction SilentlyContinue | Select-Object -Last 1
+            if ($wixDir -and (Test-Path "$($wixDir.FullName)\bin\candle.exe")) {
+              echo "$($wixDir.FullName)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+              Write-Host "Added $($wixDir.FullName)\bin to PATH"
+            }
           }
 
       - name: Package Windows Desktop Distributable & MSI
-        run: ./gradlew :desktop:createDistributable :desktop:packageMsi
+        shell: pwsh
+        run: |
+          $rawVer = "${{ inputs.version }}"
+          $msiVer = $rawVer.TrimStart('v').Trim()
+          Write-Host "Packaging desktop with MSI version: $msiVer"
+          ./gradlew :desktop:createDistributable :desktop:packageMsi "-PdesktopVersion=$msiVer"
 
       - name: Verify libVLC is inside the package
         shell: pwsh
@@ -94,30 +107,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $ver = "${{ inputs.version }}"
-          $tag = "v$ver"
+          $rawVer = "${{ inputs.version }}"
+          $msiVer = $rawVer.TrimStart('v').Trim()
+          $rawTag = "${{ inputs.tag }}".Trim()
+          $tag = if ($rawTag) { $rawTag } else { "v$msiVer" }
           $isDraft = "${{ inputs.draft }}"
 
-          Write-Host "Checking if release $tag exists..."
-          $exists = $false
-          try {
-            $null = & gh release view $tag 2>&1
-            if ($LASTEXITCODE -eq 0) {
-              $exists = $true
-            }
-          } catch {
-            $exists = $false
-          }
-
-          if ($exists) {
-            Write-Host "Release $tag already exists. Uploading Meld-Desktop-Windows.msi asset..."
-            gh release upload $tag out\Meld-Desktop-Windows.msi --clobber
+          Write-Host "Target release tag: $tag"
+          Write-Host "Attempting to upload Meld-Desktop-Windows.msi to release $tag..."
+          $uploadOutput = & gh release upload $tag out\Meld-Desktop-Windows.msi --clobber 2>&1
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Successfully attached Meld-Desktop-Windows.msi to existing release $tag."
           } else {
-            Write-Host "Creating new release $tag with MSI asset..."
+            Write-Host "Release $tag not found or cannot be modified directly ($uploadOutput). Creating release $tag..."
             if ($isDraft -eq "true") {
-              gh release create $tag out\Meld-Desktop-Windows.msi --title "$ver" --notes "Release $ver for Meld PC (Windows Desktop)" --draft
+              gh release create $tag out\Meld-Desktop-Windows.msi --title "$tag" --notes "Release $tag for Meld PC (Windows Desktop)" --draft
             } else {
-              gh release create $tag out\Meld-Desktop-Windows.msi --title "$ver" --notes "Release $ver for Meld PC (Windows Desktop)"
+              gh release create $tag out\Meld-Desktop-Windows.msi --title "$tag" --notes "Release $tag for Meld PC (Windows Desktop)"
             }
           }
           Write-Host "GitHub release step completed successfully."

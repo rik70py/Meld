@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   check-version:
-    if: "!contains(github.ref, 'refs/tags')"
+    if: "github.repository == 'FrancescoGrazioso/Meld' && !contains(github.ref, 'refs/tags')"
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
@@ -214,8 +214,12 @@ jobs:
             Write-Host "Added WiX v3.14 to PATH"
           } else {
             Write-Host "Installing WiX Toolset via Chocolatey..."
-            choco install wixtoolset --version 3.14.0.1703 -y --no-progress
-            echo "C:\Program Files (x86)\WiX Toolset v3.14\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            choco install wixtoolset -y --no-progress
+            $wixDir = Get-ChildItem "C:\Program Files (x86)" -Filter "WiX Toolset*" -Directory -ErrorAction SilentlyContinue | Select-Object -Last 1
+            if ($wixDir -and (Test-Path "$($wixDir.FullName)\bin\candle.exe")) {
+              echo "$($wixDir.FullName)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+              Write-Host "Added $($wixDir.FullName)\bin to PATH"
+            }
           }
       - name: Package Windows Desktop Distributable & MSI
         run: ./gradlew :desktop:createDistributable :desktop:packageMsi
