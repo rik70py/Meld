@@ -26,7 +26,7 @@ concurrency:
 jobs:
   build_release:
     name: Build Release (${{ matrix.variant }})
-    if: github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]' && secrets.KEYSTORE != ''
+    if: github.repository == 'FrancescoGrazioso/Meld' && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -103,7 +103,7 @@ jobs:
 
   build_debug:
     name: Build Debug (${{ matrix.variant }})
-    if: github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]' && secrets.DEBUG_KEYSTORE != ''
+    if: github.repository == 'FrancescoGrazioso/Meld' && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -165,7 +165,7 @@ jobs:
 
   publish_nightly:
     name: Publish Nightly Release
-    if: github.event_name == 'push' && secrets.KEYSTORE != ''
+    if: github.repository == 'FrancescoGrazioso/Meld' && github.event_name == 'push'
     needs: [build_release, build_debug]
     runs-on: ubuntu-latest
     timeout-minutes: 5
