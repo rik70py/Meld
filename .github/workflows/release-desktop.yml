@@ -1,0 +1,111 @@
+name: Release PC Desktop (MSI)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 1.0.2)'
+        required: true
+        default: '1.0.2'
+      draft:
+        description: 'Create as draft release'
+        type: boolean
+        default: true
+
+jobs:
+  build-and-release-desktop:
+    name: Build & Release Windows Desktop MSI
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Fetch libVLC (bundled into the installer)
+        shell: pwsh
+        run: |
+          $v = "3.0.21"
+          Invoke-WebRequest "https://download.videolan.org/pub/videolan/vlc/$v/win64/vlc-$v-win64.zip" -OutFile vlc.zip
+          Expand-Archive vlc.zip -DestinationPath vlc-extract -Force
+          $src = "vlc-extract\vlc-$v"
+          $dst = "desktop\resources\windows-x64\vlc"
+          New-Item -ItemType Directory -Force $dst | Out-Null
+          Copy-Item "$src\libvlc.dll","$src\libvlccore.dll" $dst
+          Copy-Item "$src\plugins" "$dst\plugins" -Recurse
+          Copy-Item "$src\COPYING.txt" "desktop\resources\windows-x64\VLC-COPYING.txt"
+
+      - name: Ensure WiX Toolset 3.x is installed
+        shell: pwsh
+        run: |
+          if (Get-Command candle.exe -ErrorAction SilentlyContinue) {
+            Write-Host "WiX is already on PATH"
+          } elseif (Test-Path "C:\Program Files (x86)\WiX Toolset v3.11\bin\candle.exe") {
+            echo "C:\Program Files (x86)\WiX Toolset v3.11\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            Write-Host "Added WiX v3.11 to PATH"
+          } elseif (Test-Path "C:\Program Files (x86)\WiX Toolset v3.14\bin\candle.exe") {
+            echo "C:\Program Files (x86)\WiX Toolset v3.14\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            Write-Host "Added WiX v3.14 to PATH"
+          } else {
+            Write-Host "Installing WiX Toolset via Chocolatey..."
+            choco install wixtoolset --version 3.14.0.1703 -y --no-progress
+            echo "C:\Program Files (x86)\WiX Toolset v3.14\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          }
+
+      - name: Package Windows Desktop MSI
+        run: ./gradlew :desktop:packageMsi
+
+      - name: Verify libVLC is inside the package
+        shell: pwsh
+        run: |
+          $f = Get-ChildItem desktop\build\compose\binaries\main -Recurse -Filter libvlc.dll -ErrorAction SilentlyContinue
+          if (-not $f) { throw "libvlc.dll not found in packaged app" }
+          Write-Host "Verified libvlc.dll is bundled at: $($f.FullName)"
+
+      - name: Stage MSI
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item desktop\build\compose\binaries\main\msi\*.msi out\Meld-Desktop-Windows.msi
+          Write-Host "Staged output MSI to out\Meld-Desktop-Windows.msi"
+
+      - name: Upload Windows MSI Artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: Meld-Desktop-Windows
+          path: out/Meld-Desktop-Windows.msi
+
+      - name: Publish to GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ver = "${{ inputs.version }}"
+          $tag = "v$ver"
+          $isDraft = "${{ inputs.draft }}"
+
+          Write-Host "Checking if release $tag exists..."
+          & gh release view $tag 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release $tag already exists. Uploading Meld-Desktop-Windows.msi asset..."
+            gh release upload $tag out\Meld-Desktop-Windows.msi --clobber
+          } else {
+            Write-Host "Creating new release $tag with MSI asset..."
+            if ($isDraft -eq "true") {
+              gh release create $tag out\Meld-Desktop-Windows.msi --title "$ver" --notes "Release $ver for Meld PC (Windows Desktop)" --draft
+            } else {
+              gh release create $tag out\Meld-Desktop-Windows.msi --title "$ver" --notes "Release $ver for Meld PC (Windows Desktop)"
+            }
+          }
+          Write-Host "GitHub release step completed successfully."

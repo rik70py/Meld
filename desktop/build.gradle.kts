@@ -44,6 +44,10 @@ compose.desktop {
             appResourcesRootDir.set(project.layout.projectDirectory.dir("resources"))
             windows {
                 packageVersion = "1.0.2"
+                menu = true
+                shortcut = true
+                upgradeUuid = "3B410109-D19A-4E67-83E1-513417A70E84"
+                // iconFile.set(project.file("icons/meld.ico"))
             }
         }
     }

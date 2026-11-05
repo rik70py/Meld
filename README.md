@@ -88,7 +88,7 @@ Choose your platform below:
 Meld PC is a native desktop music application built with Compose Multiplatform, 64-bit LibVLC hardware audio decoders, and direct Spotify session synchronization.
 
 #### 1. Download Pre-compiled Installer:
-Download the **`Meld-Desktop-Windows.msi`** installer from [GitHub Releases](https://github.com/rik70py/Meld/releases).
+Download the [**`Meld-Desktop-Windows.msi`**](https://github.com/rik70py/Meld/releases/latest/download/Meld-Desktop-Windows.msi) installer from [GitHub Releases](https://github.com/rik70py/Meld/releases).
 - **Bundled LibVLC**: 64-bit LibVLC is bundled directly inside the installer — no external VLC installation or setup required.
 - **Windows SmartScreen**: Since the release binary is unsigned, Windows may display a *"Windows protected your PC"* prompt. Click **More info** → **Run anyway** to proceed with installation.
 - Once installed, launch Meld directly from your Start Menu or Desktop shortcut.
@@ -114,9 +114,9 @@ The generated installer is saved to `desktop/build/compose/binaries/main/msi/Mel
 
 <div align="center">
 
-**Enjoying Meld?** Consider supporting the project
+**Enjoying Meld?** Consider supporting upstream development by Francesco Grazioso:
 
-<a href="https://buymeacoffee.com/francescogm"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me a Coffee"></a>
+<a href="https://buymeacoffee.com/francescogm"><img src="https://img.shields.io/badge/Support%20Upstream-Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me a Coffee"></a>
 
 </div>
 
@@ -188,7 +188,10 @@ For GitHub Actions builds, add these secrets to your repository:
 
 ### Q: How do I download and install Meld?
 
-Go to the [latest release](https://github.com/rik70py/Meld/releases/latest) and download the **Meld.apk** file. Open it on your Android device — you may need to allow "Install from unknown sources" in your phone's settings when prompted. You do **not** need to download the source code files.
+- **PC (Windows):** Download the [**`Meld-Desktop-Windows.msi`**](https://github.com/rik70py/Meld/releases/latest/download/Meld-Desktop-Windows.msi) installer from the [latest release](https://github.com/rik70py/Meld/releases/latest). Run the installer and launch Meld from your Start Menu or Desktop. (64-bit LibVLC is bundled into the installer).
+- **Android:** Download the [**`Meld.apk`**](https://github.com/rik70py/Meld/releases/latest/download/Meld.apk) file from the [latest release](https://github.com/rik70py/Meld/releases/latest). Open it on your Android device — you may need to allow "Install from unknown sources" in your phone's settings when prompted.
+
+You do **not** need to download the source code files.
 
 ### Q: I saw a Meld APK on a third-party website, is it safe?
 
@@ -284,7 +287,7 @@ The app is only maintained by one dev and he also has a life. Just enjoy the fre
 
 ## Credits
 
-Meld is a fork of [Metrolist](https://github.com/MetrolistGroup/Metrolist), originally created by [Mo Agamy](https://github.com/mostafaalagamy).
+This repository is a fork of [**Meld**](https://github.com/FrancescoGrazioso/Meld) by [Francesco Grazioso](https://github.com/FrancescoGrazioso), which was originally created as a fork of [**Metrolist**](https://github.com/MetrolistGroup/Metrolist) by [Mo Agamy](https://github.com/mostafaalagamy).
 
 ### Upstream Projects
 

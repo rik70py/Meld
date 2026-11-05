@@ -201,6 +201,22 @@ jobs:
           Copy-Item "$src\libvlc.dll","$src\libvlccore.dll" $dst
           Copy-Item "$src\plugins" "$dst\plugins" -Recurse
           Copy-Item "$src\COPYING.txt" "desktop\resources\windows-x64\VLC-COPYING.txt"
+      - name: Ensure WiX Toolset 3.x is installed
+        shell: pwsh
+        run: |
+          if (Get-Command candle.exe -ErrorAction SilentlyContinue) {
+            Write-Host "WiX is already on PATH"
+          } elseif (Test-Path "C:\Program Files (x86)\WiX Toolset v3.11\bin\candle.exe") {
+            echo "C:\Program Files (x86)\WiX Toolset v3.11\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            Write-Host "Added WiX v3.11 to PATH"
+          } elseif (Test-Path "C:\Program Files (x86)\WiX Toolset v3.14\bin\candle.exe") {
+            echo "C:\Program Files (x86)\WiX Toolset v3.14\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            Write-Host "Added WiX v3.14 to PATH"
+          } else {
+            Write-Host "Installing WiX Toolset via Chocolatey..."
+            choco install wixtoolset --version 3.14.0.1703 -y --no-progress
+            echo "C:\Program Files (x86)\WiX Toolset v3.14\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          }
       - name: Package Windows Desktop MSI
         run: ./gradlew :desktop:packageMsi
       - name: Verify libVLC is inside the package
