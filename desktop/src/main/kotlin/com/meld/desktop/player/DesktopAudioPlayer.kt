@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import uk.co.caprica.vlcj.factory.MediaPlayerFactory
 import uk.co.caprica.vlcj.player.base.MediaPlayer
 import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
+import java.io.File
 
 /**
  * High-performance audio player for Desktop using LibVLC / VLCJ.
@@ -47,21 +48,45 @@ class DesktopAudioPlayer(
         initVlc()
     }
 
+    private fun useBundledVlc(): Boolean {
+        val appResourcesDir = System.getProperty("compose.application.resources.dir")
+        val candidateDirs = listOfNotNull(
+            appResourcesDir?.let { File(it, "vlc") },
+            File(System.getProperty("user.dir"), "desktop/resources/vlc"),
+            File("resources/vlc"),
+            File("vlc")
+        )
+
+        for (dir in candidateDirs) {
+            val dll = File(dir, "libvlc.dll")
+            if (dir.exists() && dll.exists()) {
+                System.setProperty("jna.library.path", dir.absolutePath)
+                System.setProperty("VLC_PLUGIN_PATH", File(dir, "plugins").absolutePath)
+                println("[DesktopAudioPlayer] Using bundled LibVLC from: ${dir.absolutePath}")
+                return true
+            }
+        }
+        return false
+    }
+
     private fun initVlc() {
         try {
-            val vlcFound = uk.co.caprica.vlcj.factory.discovery.NativeDiscovery().discover()
-            if (!vlcFound) {
-                val candidateDirs = listOf(
-                    "C:\\Program Files\\VideoLAN\\VLC",
-                    "C:\\Program Files (x86)\\VideoLAN\\VLC",
-                    System.getenv("VLC_PATH") ?: ""
-                )
-                for (dir in candidateDirs) {
-                    if (dir.isNotBlank() && java.io.File(dir, "libvlc.dll").exists()) {
-                        System.setProperty("jna.library.path", dir)
-                        System.setProperty("VLC_PLUGIN_PATH", "$dir\\plugins")
-                        println("[DesktopAudioPlayer] Found VLC in fallback path: $dir")
-                        break
+            val bundledFound = useBundledVlc()
+            if (!bundledFound) {
+                val vlcFound = uk.co.caprica.vlcj.factory.discovery.NativeDiscovery().discover()
+                if (!vlcFound) {
+                    val candidateDirs = listOf(
+                        "C:\\Program Files\\VideoLAN\\VLC",
+                        "C:\\Program Files (x86)\\VideoLAN\\VLC",
+                        System.getenv("VLC_PATH") ?: ""
+                    )
+                    for (dir in candidateDirs) {
+                        if (dir.isNotBlank() && File(dir, "libvlc.dll").exists()) {
+                            System.setProperty("jna.library.path", dir)
+                            System.setProperty("VLC_PLUGIN_PATH", "$dir\\plugins")
+                            println("[DesktopAudioPlayer] Found VLC in fallback path: $dir")
+                            break
+                        }
                     }
                 }
             }

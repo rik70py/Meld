@@ -120,3 +120,9 @@ app/src/main/cpp/coverart/
 .cortexkit
 .mcp.json
 *.har
+
+# Desktop resources and bundled native binaries
+desktop/resources/vlc/
+desktop/resources/*.7z
+desktop/resources/*.zip
+

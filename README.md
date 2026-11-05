@@ -87,27 +87,22 @@ Choose your platform below:
 
 Meld PC is a native desktop music application built with Compose Multiplatform, 64-bit LibVLC hardware audio decoders, and direct Spotify session synchronization.
 
-#### 1. Prerequisites:
-- **Java 21 (JDK 21)** (e.g. Eclipse Adoptium Temurin 21)
-- **VLC Media Player 64-bit** (installed at `C:\Program Files\VideoLAN\VLC`)
+#### 1. Download Installer:
+Download the **`Meld-Desktop-Windows.msi`** installer from [GitHub Releases](https://github.com/FrancescoGrazioso/Meld/releases). Run the installer and launch Meld directly from your Start Menu or Desktop.
 
 #### 2. Run Directly from Source:
 ```powershell
-git clone https://github.com/rik70py/Meld.git
+git clone https://github.com/FrancescoGrazioso/Meld.git
 cd Meld
 .\gradlew :desktop:run
 ```
 
-#### 3. Standalone Executable / JAR:
+#### 3. Package Native Installer:
 ```powershell
-# Build and run standalone desktop JAR:
-.\gradlew :desktop:jar
-java -jar desktop/build/libs/desktop.jar
-
-# Or package native Windows MSI installer:
-.\gradlew :desktop:packageReleaseMsi
+# Package native Windows MSI installer:
+.\gradlew :desktop:packageMsi
 ```
-*(Pre-compiled desktop releases are hosted on [GitHub Releases](https://github.com/rik70py/Meld/releases)).*
+The output installer is generated in `desktop/build/compose/binaries/main/msi/`.
 
 <div align="center">
 
@@ -195,9 +190,9 @@ No, GitHub is the only place officially supported for Meld releases. Any other p
 
 No, it's a false positive. Meld is based on [Metrolist](https://github.com/metrolistgroup/metrolist) which is sometimes flagged with the same false positive. Both Meld and Metrolist are fully open-source projects using the GPL-3.0 license, with the entire source code accessible through [GitHub](https://github.com/FrancescoGrazioso/Meld).
 
-### Q: Is there a Meld PC app? When will it release?
+### Q: Is there a Meld PC app?
 
-Not yet, but it is in the works and should release soon. No date is set in stone, but we estimate the release to be before the end of this year. (So if you ask "Meld PC?", the current answer is NO, but it's coming!)
+Yes! Meld PC is available for Windows Desktop. It features a native Compose Multiplatform interface, Spotify library synchronization, 64-bit LibVLC hardware audio decoders, and full keyboard navigation. You can install it using the pre-compiled MSI installer from [GitHub Releases](https://github.com/FrancescoGrazioso/Meld/releases) or build it directly from source with `.\gradlew :desktop:packageMsi`.
 
 ### Q: I logged into Spotify but my playlists aren't showing
 

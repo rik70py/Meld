@@ -26,7 +26,6 @@ dependencies {
 
     // Desktop Audio Engine
     implementation("uk.co.caprica:vlcj:4.8.3")
-
 }
 
 compose.desktop {
@@ -38,10 +37,11 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe
             )
             packageName = "Meld"
-            packageVersion = "1.0.0"
+            packageVersion = "0.9.2"
             description = "Meld Desktop Music Player"
             copyright = "© 2026 Meld Contributors"
             vendor = "Meld"
+            appResourcesRootDir.set(project.layout.projectDirectory.dir("resources"))
         }
     }
 }

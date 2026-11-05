@@ -74,8 +74,8 @@ fun SearchView(
                 }
                 val results = DesktopTrackMatcher.searchYouTubeDirect(query, filter)
                 searchResults = results
-            } catch (_: CancellationException) {
-                // User typed another character, cleanly cancelled
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 println("[SearchView] Search error: ${e.message}")
             } finally {
