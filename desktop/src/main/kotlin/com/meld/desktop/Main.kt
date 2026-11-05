@@ -44,7 +44,18 @@ import java.awt.Desktop
 import java.awt.Dimension
 import java.net.URI
 
-fun main() = application {
+fun main() {
+    try {
+        val logFile = java.io.File(System.getProperty("user.home"), ".meld/meld.log").apply { parentFile?.mkdirs() }
+        val ps = java.io.PrintStream(java.io.FileOutputStream(logFile, true), true)
+        System.setOut(ps)
+        System.setErr(ps)
+        println("\n=== Meld Desktop started at ${java.util.Date()} ===")
+    } catch (e: Exception) {
+        System.err.println("Failed to initialize log file: ${e.message}")
+    }
+
+    application {
     val windowState = rememberWindowState(width = 1240.dp, height = 820.dp)
 
     val scope = rememberCoroutineScope()
@@ -232,7 +243,16 @@ fun main() = application {
                     hostState = playerController.snackbarHostState,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 100.dp)
+                        .padding(bottom = 100.dp),
+                    snackbar = { data ->
+                        Snackbar(
+                            snackbarData = data,
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                            actionColor = MaterialTheme.colorScheme.primary,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                    }
                 )
 
                 if (showLoginDialog) {
@@ -245,6 +265,7 @@ fun main() = application {
             }
         }
     }
+}
 }
 
 /**

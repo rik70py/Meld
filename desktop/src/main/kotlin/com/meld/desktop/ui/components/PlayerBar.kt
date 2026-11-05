@@ -1,6 +1,7 @@
 package com.meld.desktop.ui.components
 
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -26,6 +27,7 @@ import com.meld.desktop.state.PlayerController
 import com.meld.desktop.state.RepeatMode
 import com.meld.desktop.ui.theme.MeldPrimary
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerBar(
     playerController: PlayerController,
@@ -273,7 +275,17 @@ fun PlayerBar(
                                 activeTrackColor = MeldPrimary,
                                 thumbColor = if (isSeekHovered || draggingProgress != null) MeldPrimary else Color.Transparent,
                                 inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
+                            ),
+                            track = { sliderState ->
+                                SliderDefaults.Track(
+                                    sliderState = sliderState,
+                                    drawStopIndicator = null,
+                                    colors = SliderDefaults.colors(
+                                        activeTrackColor = MeldPrimary,
+                                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                )
+                            }
                         )
                     }
 
@@ -342,7 +354,24 @@ fun PlayerBar(
                         activeTrackColor = MeldPrimary,
                         thumbColor = MeldPrimary,
                         inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
+                    ),
+                    thumb = {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .background(MeldPrimary, CircleShape)
+                        )
+                    },
+                    track = { sliderState ->
+                        SliderDefaults.Track(
+                            sliderState = sliderState,
+                            drawStopIndicator = null,
+                            colors = SliderDefaults.colors(
+                                activeTrackColor = MeldPrimary,
+                                inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        )
+                    }
                 )
             }
         }

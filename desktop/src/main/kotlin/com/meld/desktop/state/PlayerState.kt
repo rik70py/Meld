@@ -1,6 +1,8 @@
 package com.meld.desktop.state
 
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import com.meld.desktop.player.DesktopAudioPlayer
 import com.meld.desktop.player.DesktopTrackMatcher
 import com.metrolist.innertube.models.SongItem
@@ -284,19 +286,32 @@ class PlayerController(
         consecutiveFailures++
         if (consecutiveFailures >= 3) {
             consecutiveFailures = 0
-            notify("Multiple streams failed to load. Auto-advance stopped.")
+            _isResolvingStream.value = false
+            notify("Multiple streams failed to load. Auto-advance stopped.", actionLabel = "Retry") {
+                _currentTrack.value?.let { playTrackInternal(it) }
+            }
         } else {
-            notify(message)
+            val failedTrack = _currentTrack.value
+            notify(message, actionLabel = "Retry") {
+                failedTrack?.let { playTrackInternal(it) }
+            }
             if (DesktopSettings.autoPlayNext.value) {
                 playNext()
             }
         }
     }
 
-    fun notify(message: String) {
+    fun notify(message: String, actionLabel: String? = null, onAction: (() -> Unit)? = null) {
         scope.launch {
             try {
-                snackbarHostState.showSnackbar(message)
+                val result = snackbarHostState.showSnackbar(
+                    message = message,
+                    actionLabel = actionLabel,
+                    duration = SnackbarDuration.Short
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    onAction?.invoke()
+                }
             } catch (_: Exception) {}
         }
     }

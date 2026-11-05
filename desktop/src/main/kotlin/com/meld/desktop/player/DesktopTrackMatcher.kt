@@ -33,20 +33,25 @@ object DesktopTrackMatcher {
      */
     suspend fun fetchAudioStream(videoId: String): String? = withContext(Dispatchers.IO) {
         val clientOrder = listOf(
-            YouTubeClient.ANDROID_VR_NO_AUTH,
-            YouTubeClient.ANDROID_VR_1_65_10,
-            YouTubeClient.VISIONOS
+            "ANDROID_VR_NO_AUTH" to YouTubeClient.ANDROID_VR_NO_AUTH,
+            "ANDROID_VR_1_65_10" to YouTubeClient.ANDROID_VR_1_65_10,
+            "VISIONOS" to YouTubeClient.VISIONOS
         )
 
         val preferStandard = DesktopSettings.audioQuality.value.startsWith("Standard")
 
-        for (client in clientOrder) {
-            val response = YouTube.player(videoId, client = client).getOrNull()
+        for ((name, client) in clientOrder) {
+            val result = YouTube.player(videoId, client = client)
+            val response = result.getOrNull()
             val formats = response?.streamingData?.adaptiveFormats
                 ?: response?.streamingData?.formats
                 ?: emptyList()
 
             val validAudio = formats.filter { it.mimeType.startsWith("audio/") && !it.url.isNullOrBlank() }
+
+            println("[DesktopTrackMatcher] $videoId via $name: status=${response?.playabilityStatus?.status} " +
+                "reason=${response?.playabilityStatus?.reason} audioWithUrl=${validAudio.size} " +
+                "error=${result.exceptionOrNull()?.message}")
 
             val chosenFormat = if (preferStandard) {
                 validAudio.find { it.mimeType.contains("mp4") || it.itag == 140 }
@@ -79,21 +84,27 @@ object DesktopTrackMatcher {
         val targetDurationSec = track.durationMs / 1000
 
         // Score candidates based on duration proximity and title similarity
-        val bestMatch = songs.minByOrNull { song ->
+        val sortedCandidates = songs.sortedBy { song ->
             val durationDiff = song.duration?.let { abs(it - targetDurationSec) } ?: 100
             val titleMatches = if (song.title.contains(track.name, ignoreCase = true)) 0 else 50
             durationDiff + titleMatches
-        } ?: songs.first()
+        }.take(3)
 
-        val streamUrl = fetchAudioStream(bestMatch.id) ?: return@withContext null
+        for (candidate in sortedCandidates) {
+            val streamUrl = fetchAudioStream(candidate.id)
+            if (streamUrl != null) {
+                return@withContext ResolvedStream(
+                    videoId = candidate.id,
+                    title = candidate.title,
+                    artist = candidate.artists.firstOrNull()?.name ?: artistName,
+                    streamUrl = streamUrl,
+                    durationSeconds = candidate.duration ?: targetDurationSec
+                )
+            }
+        }
 
-        ResolvedStream(
-            videoId = bestMatch.id,
-            title = bestMatch.title,
-            artist = bestMatch.artists.firstOrNull()?.name ?: artistName,
-            streamUrl = streamUrl,
-            durationSeconds = bestMatch.duration ?: targetDurationSec
-        )
+        println("[DesktopTrackMatcher] All ${sortedCandidates.size} candidates failed stream resolution for track: ${track.name}")
+        null
     }
 
     /**
