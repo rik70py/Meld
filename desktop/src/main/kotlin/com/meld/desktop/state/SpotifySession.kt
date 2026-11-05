@@ -1,5 +1,6 @@
 package com.meld.desktop.state
 
+import com.meld.desktop.auth.CredentialStore
 import com.metrolist.spotify.Spotify
 import com.metrolist.spotify.SpotifyAuth
 import com.metrolist.spotify.models.SpotifyUser
@@ -10,16 +11,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 
 /**
- * Manages desktop Spotify authentication and session persistence.
+ * Manages desktop Spotify authentication and encrypted session persistence.
  * Uses the sp_dc cookie to fetch internal Spotify tokens without
  * requiring developer API keys.
  */
 class SpotifySession(private val scope: CoroutineScope) {
-
-    private val configFile = File(System.getProperty("user.home"), ".meld/spotify_session.txt")
 
     private val _isLoggedIn = MutableStateFlow(false)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
@@ -38,11 +36,9 @@ class SpotifySession(private val scope: CoroutineScope) {
     }
 
     private fun loadSavedSession() {
-        if (configFile.exists()) {
-            val savedSpDc = configFile.readText().trim()
-            if (savedSpDc.isNotBlank()) {
-                connectWithSpDc(savedSpDc)
-            }
+        val savedSpDc = CredentialStore.loadSpDc()
+        if (!savedSpDc.isNullOrBlank()) {
+            connectWithSpDc(savedSpDc)
         }
     }
 
@@ -59,10 +55,9 @@ class SpotifySession(private val scope: CoroutineScope) {
                     Spotify.accessToken = tokenResult.accessToken
                     _isLoggedIn.value = true
 
-                    // Persist for next launch
+                    // Persist securely encrypted
                     withContext(Dispatchers.IO) {
-                        configFile.parentFile?.mkdirs()
-                        configFile.writeText(spDcCookie)
+                        CredentialStore.saveSpDc(spDcCookie)
                     }
 
                     // Fetch user profile
@@ -88,8 +83,6 @@ class SpotifySession(private val scope: CoroutineScope) {
         Spotify.accessToken = null
         _isLoggedIn.value = false
         _currentUser.value = null
-        if (configFile.exists()) {
-            configFile.delete()
-        }
+        CredentialStore.clearSpDc()
     }
 }

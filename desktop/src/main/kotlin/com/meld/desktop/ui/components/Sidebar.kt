@@ -2,6 +2,9 @@ package com.meld.desktop.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,11 +18,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,29 +53,29 @@ fun Sidebar(
 
     Column(
         modifier = modifier
-            .width(250.dp)
+            .width(240.dp)
             .fillMaxHeight()
             .background(MaterialTheme.colorScheme.surface)
             .padding(horizontal = 16.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column {
-            // App Branding Header - Metrolist Signature Style
+            // App Branding Header
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(start = 8.dp, bottom = 28.dp, top = 4.dp)
+                modifier = Modifier.padding(start = 6.dp, bottom = 28.dp, top = 4.dp)
             ) {
                 Surface(
                     color = MeldPrimary,
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.size(32.dp)
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.size(34.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
                             text = "M",
                             color = Color.White,
                             fontWeight = FontWeight.Black,
-                            fontSize = 18.sp
+                            fontSize = 20.sp
                         )
                     }
                 }
@@ -77,14 +83,14 @@ fun Sidebar(
                 Column {
                     Text(
                         text = "MELD",
-                        fontSize = 20.sp,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.onSurface,
                         letterSpacing = 2.sp
                     )
                     Text(
-                        text = "Metrolist Desktop",
-                        fontSize = 11.sp,
+                        text = "Music Player",
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -122,7 +128,7 @@ fun Sidebar(
 
         // Account status block at bottom of sidebar
         Surface(
-            color = MeldSurfaceElevated,
+            color = MaterialTheme.colorScheme.surfaceVariant,
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -132,14 +138,14 @@ fun Sidebar(
                         Surface(
                             color = MeldPrimary.copy(alpha = 0.2f),
                             shape = CircleShape,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(34.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
                                     text = (currentUser?.displayName?.firstOrNull() ?: 'U').uppercase(),
                                     color = MeldPrimary,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp
+                                    fontSize = 14.sp
                                 )
                             }
                         }
@@ -147,25 +153,24 @@ fun Sidebar(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = currentUser?.displayName ?: "Spotify User",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleSmall,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1
                             )
                             Text(
-                                text = "Synced",
-                                fontSize = 11.sp,
+                                text = "Spotify Connected",
+                                style = MaterialTheme.typography.labelSmall,
                                 color = MeldPrimary
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     TextButton(
                         onClick = { spotifySession.logout() },
-                        modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(vertical = 4.dp)
+                        modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand),
+                        contentPadding = PaddingValues(vertical = 2.dp)
                     ) {
-                        Text("Log Out", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                        Text("Disconnect", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
                     }
                 } else {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -173,32 +178,30 @@ fun Sidebar(
                             Icons.Default.AccountCircle,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Spotify Account",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Sync playlists and daily recommendations.",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 15.sp
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Button(
                         onClick = onOpenLoginDialog,
                         colors = ButtonDefaults.buttonColors(containerColor = MeldPrimary),
                         shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier.fillMaxWidth().height(36.dp),
+                        modifier = Modifier.fillMaxWidth().height(34.dp).pointerHoverIcon(PointerIcon.Hand),
                         contentPadding = PaddingValues(0.dp)
                     ) {
-                        Text("Connect", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("Connect", style = MaterialTheme.typography.labelMedium, color = Color.White)
                     }
                 }
             }
@@ -213,8 +216,15 @@ private fun SidebarNavItem(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val bgColor = if (isSelected) MeldPrimary.copy(alpha = 0.16f) else Color.Transparent
-    val contentColor = if (isSelected) MeldPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
+    val bgColor = when {
+        isSelected -> MeldPrimary.copy(alpha = 0.16f)
+        isHovered -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+        else -> Color.Transparent
+    }
+    val contentColor = if (isSelected) MeldPrimary else MaterialTheme.colorScheme.onSurface
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -222,16 +232,18 @@ private fun SidebarNavItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
             .background(bgColor)
+            .hoverable(interactionSource)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 11.dp)
+            .pointerHoverIcon(PointerIcon.Hand)
+            .padding(horizontal = 16.dp, vertical = 10.dp)
     ) {
         Icon(icon, contentDescription = label, tint = contentColor, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(14.dp))
         Text(
             text = label,
             color = contentColor,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-            fontSize = 14.sp
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
         )
     }
 }

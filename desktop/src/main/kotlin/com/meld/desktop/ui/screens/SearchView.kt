@@ -1,13 +1,19 @@
 package com.meld.desktop.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,6 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -22,9 +30,12 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.meld.desktop.player.DesktopTrackMatcher
 import com.meld.desktop.state.PlayerController
+import com.meld.desktop.state.toActiveTrack
+import com.meld.desktop.ui.components.formatMs
 import com.meld.desktop.ui.theme.MeldPrimary
+import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.SongItem
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 @Composable
 fun SearchView(
@@ -32,9 +43,37 @@ fun SearchView(
     modifier: Modifier = Modifier
 ) {
     var searchQuery by remember { mutableStateOf("") }
+    var selectedFilter by remember { mutableStateOf("All") }
     var searchResults by remember { mutableStateOf<List<SongItem>>(emptyList()) }
     var isSearching by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+
+    val filterChips = listOf("All", "Songs", "Artists", "Albums")
+
+    // Debounced search with 300ms delay & automatic cancellation of previous job
+    LaunchedEffect(searchQuery, selectedFilter) {
+        val query = searchQuery.trim()
+        if (query.length >= 2) {
+            delay(300) // 300ms debounce
+            isSearching = true
+            try {
+                val filter = when (selectedFilter) {
+                    "Songs" -> YouTube.SearchFilter.FILTER_SONG
+                    "Artists" -> YouTube.SearchFilter.FILTER_ARTIST
+                    "Albums" -> YouTube.SearchFilter.FILTER_ALBUM
+                    else -> YouTube.SearchFilter.FILTER_SONG
+                }
+                val results = DesktopTrackMatcher.searchYouTubeDirect(query, filter)
+                searchResults = results
+            } catch (e: Exception) {
+                println("[SearchView] Search error: ${e.message}")
+            } finally {
+                isSearching = false
+            }
+        } else {
+            searchResults = emptyList()
+            isSearching = false
+        }
+    }
 
     Column(
         modifier = modifier
@@ -43,29 +82,16 @@ fun SearchView(
     ) {
         Text(
             text = "Search",
-            fontSize = 30.sp,
-            fontWeight = FontWeight.Black,
+            style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Search Input Bar (Metrolist Mobile Pill Style)
+        // Search Input Bar
         OutlinedTextField(
             value = searchQuery,
-            onValueChange = { query ->
-                searchQuery = query
-                if (query.length >= 2) {
-                    scope.launch {
-                        isSearching = true
-                        val results = DesktopTrackMatcher.searchYouTubeDirect(query)
-                        searchResults = results
-                        isSearching = false
-                    }
-                } else {
-                    searchResults = emptyList()
-                }
-            },
+            onValueChange = { searchQuery = it },
             placeholder = { Text("Songs, artists, or albums", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             leadingIcon = {
                 Icon(
@@ -76,10 +102,13 @@ fun SearchView(
             },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = {
-                        searchQuery = ""
-                        searchResults = emptyList()
-                    }) {
+                    IconButton(
+                        onClick = {
+                            searchQuery = ""
+                            searchResults = emptyList()
+                        },
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
+                    ) {
                         Icon(Icons.Default.Close, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -95,22 +124,92 @@ fun SearchView(
             )
         )
 
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Filter chips: All, Songs, Artists, Albums
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            filterChips.forEach { chip ->
+                val isSelected = chip == selectedFilter
+                Surface(
+                    color = if (isSelected) MeldPrimary else MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier
+                        .clickable { selectedFilter = chip }
+                        .pointerHoverIcon(PointerIcon.Hand)
+                ) {
+                    Text(
+                        text = chip,
+                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                    )
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(20.dp))
 
         if (isSearching) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier.fillMaxWidth().height(160.dp),
+                contentAlignment = Alignment.Center
+            ) {
                 CircularProgressIndicator(color = MeldPrimary)
             }
-        } else if (searchResults.isEmpty() && searchQuery.isNotEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No results found for \"$searchQuery\"", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else if (searchQuery.trim().length >= 2 && searchResults.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxWidth().height(120.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No results found for \"$searchQuery\"",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        } else if (searchResults.isNotEmpty()) {
+            val activeQueue = remember(searchResults) { searchResults.map { it.toActiveTrack() } }
+
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                itemsIndexed(searchResults) { index, song ->
+                    SearchResultRow(
+                        index = index + 1,
+                        song = song,
+                        onPlay = {
+                            playerController.playQueue(activeQueue, index)
+                        },
+                        onAddToQueue = {
+                            playerController.addToQueue(song.toActiveTrack())
+                        }
+                    )
+                }
             }
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                items(searchResults) { song ->
-                    SearchResultRow(song = song) {
-                        playerController.playSong(song)
-                    }
+            // Initial Empty State
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Search across millions of songs and artists",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             }
         }
@@ -119,83 +218,101 @@ fun SearchView(
 
 @Composable
 private fun SearchResultRow(
+    index: Int,
     song: SongItem,
-    onPlay: () -> Unit
+    onPlay: () -> Unit,
+    onAddToQueue: () -> Unit
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
+    val dur = song.duration
+    val durationText = if (dur != null && dur > 0) formatMs(dur * 1000L) else "--:--"
+
     Surface(
-        color = Color.Transparent,
+        color = if (isHovered) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f) else Color.Transparent,
         shape = RoundedCornerShape(8.dp),
         modifier = Modifier
             .fillMaxWidth()
+            .hoverable(interactionSource)
             .clickable(onClick = onPlay)
+            .pointerHoverIcon(PointerIcon.Hand)
     ) {
         Row(
-            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            Box(
+                modifier = Modifier.width(36.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                if (isHovered) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = MeldPrimary, modifier = Modifier.size(20.dp))
+                } else {
+                    Text(
+                        text = "$index",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1.5f),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 if (!song.thumbnail.isNullOrBlank()) {
                     AsyncImage(
                         model = song.thumbnail,
                         contentDescription = null,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(RoundedCornerShape(6.dp))
+                        modifier = Modifier.size(42.dp).clip(RoundedCornerShape(6.dp))
                     )
                 } else {
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceVariant,
                         shape = RoundedCornerShape(6.dp),
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(42.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Text("♪", fontSize = 18.sp, color = MeldPrimary)
+                            Icon(Icons.Default.MusicNote, contentDescription = null, tint = MeldPrimary, modifier = Modifier.size(20.dp))
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.width(14.dp))
-
-                Column {
-                    Text(
-                        text = song.title,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    val artistAndAlbum = buildString {
-                        append(song.artists.joinToString(", ") { it.name })
-                        if (!song.album?.name.isNullOrBlank()) {
-                            append(" • ")
-                            append(song.album?.name)
-                        }
-                    }
-                    Text(
-                        text = artistAndAlbum,
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = song.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
 
+            Text(
+                text = song.artists.joinToString(", ") { it.name },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Text(
+                text = durationText,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.width(60.dp)
+            )
+
             IconButton(
-                onClick = onPlay,
-                modifier = Modifier.size(36.dp)
+                onClick = onAddToQueue,
+                modifier = Modifier.size(32.dp).pointerHoverIcon(PointerIcon.Hand)
             ) {
                 Icon(
-                    Icons.Default.PlayArrow,
-                    contentDescription = "Play",
-                    tint = MeldPrimary,
-                    modifier = Modifier.size(20.dp)
+                    Icons.Default.QueueMusic,
+                    contentDescription = "Add to Queue",
+                    tint = if (isHovered) MeldPrimary else Color.Transparent,
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }

@@ -10,6 +10,7 @@ object DesktopSettings {
     private val file = File(System.getProperty("user.home"), ".meld/desktop_settings.properties")
     private val props = Properties()
 
+    val themeMode = MutableStateFlow("Dark") // Dark, Light, System
     val pureBlack = MutableStateFlow(true)
     val autoPlayNext = MutableStateFlow(true)
     val audioQuality = MutableStateFlow("High (Opus 251 - 136 kbps)")
@@ -23,6 +24,7 @@ object DesktopSettings {
         if (file.exists()) {
             try {
                 FileInputStream(file).use { props.load(it) }
+                themeMode.value = props.getProperty("themeMode", "Dark")
                 pureBlack.value = props.getProperty("pureBlack", "true").toBoolean()
                 autoPlayNext.value = props.getProperty("autoPlayNext", "true").toBoolean()
                 audioQuality.value = props.getProperty("audioQuality", "High (Opus 251 - 136 kbps)")
@@ -36,6 +38,7 @@ object DesktopSettings {
     fun save() {
         try {
             file.parentFile?.mkdirs()
+            props.setProperty("themeMode", themeMode.value)
             props.setProperty("pureBlack", pureBlack.value.toString())
             props.setProperty("autoPlayNext", autoPlayNext.value.toString())
             props.setProperty("audioQuality", audioQuality.value)

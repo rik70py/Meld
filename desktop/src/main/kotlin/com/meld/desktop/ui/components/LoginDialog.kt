@@ -12,6 +12,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -19,7 +21,6 @@ import androidx.compose.ui.window.Dialog
 import com.meld.desktop.auth.DesktopSpotifyAuth
 import com.meld.desktop.state.SpotifySession
 import com.meld.desktop.ui.theme.MeldPrimary
-import com.meld.desktop.ui.theme.MeldSurfaceElevated
 import kotlinx.coroutines.launch
 
 @Composable
@@ -49,22 +50,22 @@ fun LoginDialog(
     }) {
         Surface(
             shape = RoundedCornerShape(20.dp),
-            color = MeldSurfaceElevated,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 8.dp,
             modifier = Modifier.width(480.dp).padding(16.dp)
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
                 Text(
                     text = "Connect Spotify",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Black,
+                    style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Sync your personal playlists and Spotify recommendations directly into Meld PC.",
-                    fontSize = 13.sp,
+                    text = "Synchronize your personal Liked Songs and playlists seamlessly into Meld.",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
@@ -72,7 +73,7 @@ fun LoginDialog(
 
                 // Primary: Direct 1-Click Browser Login
                 Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -89,14 +90,14 @@ fun LoginDialog(
                             Spacer(modifier = Modifier.height(14.dp))
                             Text(
                                 text = directLoginStatus ?: "Waiting for Spotify authentication...",
-                                fontSize = 13.sp,
+                                style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "Sign in using your account in the popup window. Meld will automatically detect your login and connect.",
-                                fontSize = 11.sp,
+                                text = "Sign in using your account in the browser window. Meld will automatically detect your login and connect.",
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         } else {
@@ -119,7 +120,10 @@ fun LoginDialog(
                                     }
                                 },
                                 enabled = !isLoading,
-                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(46.dp)
+                                    .pointerHoverIcon(PointerIcon.Hand),
                                 colors = ButtonDefaults.buttonColors(containerColor = MeldPrimary),
                                 shape = RoundedCornerShape(24.dp)
                             ) {
@@ -127,8 +131,8 @@ fun LoginDialog(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "Log In Directly with Spotify",
+                                    style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp,
                                     color = Color.White
                                 )
                             }
@@ -137,7 +141,7 @@ fun LoginDialog(
 
                             Text(
                                 text = "Supports Google, Apple, Facebook, and Email/Password.",
-                                fontSize = 11.sp,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -149,7 +153,7 @@ fun LoginDialog(
                     Text(
                         text = directLoginError ?: "",
                         color = MaterialTheme.colorScheme.error,
-                        fontSize = 12.sp
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
 
@@ -158,7 +162,7 @@ fun LoginDialog(
                     Text(
                         text = errorMessage ?: "",
                         color = MaterialTheme.colorScheme.error,
-                        fontSize = 12.sp
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
 
@@ -169,11 +173,12 @@ fun LoginDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .clickable { showManualInput = !showManualInput }
+                        .pointerHoverIcon(PointerIcon.Hand)
                         .padding(vertical = 4.dp)
                 ) {
                     Text(
                         text = "Or enter sp_dc cookie manually",
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.labelMedium,
                         color = MeldPrimary,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -206,9 +211,9 @@ fun LoginDialog(
                         enabled = spDcInput.isNotBlank() && !isLoading,
                         colors = ButtonDefaults.buttonColors(containerColor = MeldPrimary),
                         shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier.align(Alignment.End)
+                        modifier = Modifier.align(Alignment.End).pointerHoverIcon(PointerIcon.Hand)
                     ) {
-                        Text("Connect with Cookie", fontSize = 12.sp, color = Color.White)
+                        Text("Connect with Cookie", style = MaterialTheme.typography.labelMedium, color = Color.White)
                     }
                 }
 
@@ -220,7 +225,8 @@ fun LoginDialog(
                 ) {
                     TextButton(
                         onClick = onDismiss,
-                        enabled = !isDirectLoggingIn
+                        enabled = !isDirectLoggingIn,
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
                     ) {
                         Text("Cancel")
                     }

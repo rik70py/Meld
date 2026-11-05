@@ -1,8 +1,10 @@
 package com.meld.desktop.player
 
+import com.meld.desktop.state.DesktopSettings
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.YouTubeClient
+import com.metrolist.spotify.Spotify
 import com.metrolist.spotify.models.SpotifyTrack
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -33,19 +35,29 @@ object DesktopTrackMatcher {
             YouTubeClient.VISIONOS
         )
 
+        val preferStandard = DesktopSettings.audioQuality.value.startsWith("Standard")
+
         for (client in clientOrder) {
             val response = YouTube.player(videoId, client = client).getOrNull()
             val formats = response?.streamingData?.adaptiveFormats
                 ?: response?.streamingData?.formats
                 ?: emptyList()
 
-            val audioFormat = formats
-                .filter { it.mimeType.startsWith("audio/") && !it.url.isNullOrBlank() }
-                .maxByOrNull { it.bitrate }
+            val validAudio = formats.filter { it.mimeType.startsWith("audio/") && !it.url.isNullOrBlank() }
 
-            if (audioFormat?.url != null) {
-                println("[DesktopTrackMatcher] Resolved audio stream using client: $client (itag=${audioFormat.itag}, bitrate=${audioFormat.bitrate})")
-                return@withContext audioFormat.url
+            val chosenFormat = if (preferStandard) {
+                // Prefer AAC / m4a (itag 140) or moderate bitrate
+                validAudio.find { it.mimeType.contains("mp4") || it.itag == 140 }
+                    ?: validAudio.minByOrNull { it.bitrate }
+            } else {
+                // High bitrate Opus (itag 251) preferred
+                validAudio.find { it.itag == 251 }
+                    ?: validAudio.maxByOrNull { it.bitrate }
+            }
+
+            if (chosenFormat?.url != null) {
+                println("[DesktopTrackMatcher] Resolved audio for videoId=$videoId (itag=${chosenFormat.itag}, bitrate=${chosenFormat.bitrate})")
+                return@withContext chosenFormat.url
             }
         }
         println("[DesktopTrackMatcher] Failed to resolve playable stream for videoId: $videoId")
@@ -55,13 +67,11 @@ object DesktopTrackMatcher {
     suspend fun resolveStream(track: SpotifyTrack): ResolvedStream? = withContext(Dispatchers.IO) {
         val artistName = track.artists.firstOrNull()?.name ?: ""
         val query = "$artistName - ${track.name}"
-        println("[DesktopTrackMatcher] Searching YouTube for: $query")
 
         val searchResult = YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrNull()
         val songs = searchResult?.items?.filterIsInstance<SongItem>() ?: emptyList()
 
         if (songs.isEmpty()) {
-            println("[DesktopTrackMatcher] No songs found for $query")
             return@withContext null
         }
 
@@ -74,8 +84,6 @@ object DesktopTrackMatcher {
             durationDiff + titleMatches
         } ?: songs.first()
 
-        println("[DesktopTrackMatcher] Matched: ${bestMatch.title} (${bestMatch.id})")
-
         val streamUrl = fetchAudioStream(bestMatch.id) ?: return@withContext null
 
         ResolvedStream(
@@ -87,14 +95,13 @@ object DesktopTrackMatcher {
         )
     }
 
-    suspend fun searchYouTubeDirect(query: String): List<SongItem> = withContext(Dispatchers.IO) {
-        val result = YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrNull()
+    suspend fun searchYouTubeDirect(query: String, filter: YouTube.SearchFilter? = null): List<SongItem> = withContext(Dispatchers.IO) {
+        val result = YouTube.search(query, filter ?: YouTube.SearchFilter.FILTER_SONG).getOrNull()
         result?.items?.filterIsInstance<SongItem>() ?: emptyList()
     }
 
     /**
-     * Fetches recommended songs for initial app load and category filtering.
-     * Uses YouTube Music home trending items with fallback to search queries.
+     * Fetches personalized or trending recommendations.
      */
     suspend fun fetchRecommendedSongs(query: String = "Top Hits Today"): List<SongItem> = withContext(Dispatchers.IO) {
         if (query == "Top Hits Today") {
@@ -107,5 +114,14 @@ object DesktopTrackMatcher {
 
         val results = YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrNull()
         results?.items?.filterIsInstance<SongItem>()?.distinctBy { it.id } ?: emptyList()
+    }
+
+    /**
+     * Fetches real Spotify tracks from user library to power personalized recommendations.
+     */
+    suspend fun fetchSpotifyRecommendations(): List<SpotifyTrack> = withContext(Dispatchers.IO) {
+        if (Spotify.accessToken == null) return@withContext emptyList()
+        val liked = Spotify.likedSongs(limit = 20).getOrNull()?.items?.map { it.track }.orEmpty()
+        liked
     }
 }

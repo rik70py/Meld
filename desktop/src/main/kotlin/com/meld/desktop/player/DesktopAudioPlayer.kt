@@ -1,5 +1,6 @@
 package com.meld.desktop.player
 
+import com.meld.desktop.state.DesktopSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -37,92 +38,111 @@ class DesktopAudioPlayer(
     private val _volume = MutableStateFlow(100)
     val volume: StateFlow<Int> = _volume.asStateFlow()
 
-    private val _isVlcAvailable = MutableStateFlow(true)
+    private val _isVlcAvailable = MutableStateFlow(false)
     val isVlcAvailable: StateFlow<Boolean> = _isVlcAvailable.asStateFlow()
 
+    var onTrackFinished: (() -> Unit)? = null
+
     init {
+        initVlc()
+    }
+
+    private fun initVlc() {
         try {
             val vlcFound = uk.co.caprica.vlcj.factory.discovery.NativeDiscovery().discover()
-            println("[DesktopAudioPlayer] VLC NativeDiscovery: $vlcFound")
             if (!vlcFound) {
-                val vlcDir = "C:\\Program Files\\VideoLAN\\VLC"
-                if (java.io.File(vlcDir, "libvlc.dll").exists()) {
-                    System.setProperty("jna.library.path", vlcDir)
-                    System.setProperty("VLC_PLUGIN_PATH", "$vlcDir\\plugins")
-                    println("[DesktopAudioPlayer] Set fallback VLC path to $vlcDir")
+                val candidateDirs = listOf(
+                    "C:\\Program Files\\VideoLAN\\VLC",
+                    "C:\\Program Files (x86)\\VideoLAN\\VLC",
+                    System.getenv("VLC_PATH") ?: ""
+                )
+                for (dir in candidateDirs) {
+                    if (dir.isNotBlank() && java.io.File(dir, "libvlc.dll").exists()) {
+                        System.setProperty("jna.library.path", dir)
+                        System.setProperty("VLC_PLUGIN_PATH", "$dir\\plugins")
+                        println("[DesktopAudioPlayer] Found VLC in fallback path: $dir")
+                        break
+                    }
                 }
             }
-            mediaPlayerFactory = MediaPlayerFactory("--no-video", "--intf=dummy")
-            mediaPlayer = mediaPlayerFactory?.mediaPlayers()?.newMediaPlayer()?.apply {
-                events().addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
-                    override fun playing(mp: MediaPlayer?) {
-                        _isPlaying.value = true
-                        startProgressPolling()
-                        println("[DesktopAudioPlayer] VLC state: PLAYING")
-                    }
 
-                    override fun paused(mp: MediaPlayer?) {
-                        _isPlaying.value = false
-                        stopProgressPolling()
-                        println("[DesktopAudioPlayer] VLC state: PAUSED")
-                    }
-
-                    override fun stopped(mp: MediaPlayer?) {
-                        _isPlaying.value = false
-                        _positionMs.value = 0L
-                        stopProgressPolling()
-                        println("[DesktopAudioPlayer] VLC state: STOPPED")
-                    }
-
-                    override fun finished(mp: MediaPlayer?) {
-                        _isPlaying.value = false
-                        _positionMs.value = 0L
-                        stopProgressPolling()
-                        println("[DesktopAudioPlayer] VLC state: FINISHED")
-                    }
-
-                    override fun lengthChanged(mp: MediaPlayer?, newLength: Long) {
-                        if (newLength > 0) {
-                            _durationMs.value = newLength
-                        }
-                    }
-
-                    override fun error(mp: MediaPlayer?) {
-                        _isPlaying.value = false
-                        stopProgressPolling()
-                        println("[DesktopAudioPlayer] VLC state: ERROR")
-                    }
-                })
+            val options = mutableListOf("--no-video", "--intf=dummy")
+            if (DesktopSettings.normalizeVolume.value) {
+                options.add("--audio-filter=normvol")
             }
-            println("[DesktopAudioPlayer] MediaPlayer initialized successfully: $mediaPlayer")
+
+            val factory = MediaPlayerFactory(*options.toTypedArray())
+            val player = factory.mediaPlayers().newMediaPlayer()
+
+            player.events().addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
+                override fun playing(mp: MediaPlayer?) {
+                    _isPlaying.value = true
+                    startProgressPolling()
+                }
+
+                override fun paused(mp: MediaPlayer?) {
+                    _isPlaying.value = false
+                    stopProgressPolling()
+                }
+
+                override fun stopped(mp: MediaPlayer?) {
+                    _isPlaying.value = false
+                    _positionMs.value = 0L
+                    stopProgressPolling()
+                }
+
+                override fun finished(mp: MediaPlayer?) {
+                    _isPlaying.value = false
+                    _positionMs.value = 0L
+                    stopProgressPolling()
+                    println("[DesktopAudioPlayer] Track finished naturally")
+                    scope.launch(Dispatchers.Main) {
+                        onTrackFinished?.invoke()
+                    }
+                }
+
+                override fun lengthChanged(mp: MediaPlayer?, newLength: Long) {
+                    if (newLength > 0) {
+                        _durationMs.value = newLength
+                    }
+                }
+
+                override fun error(mp: MediaPlayer?) {
+                    _isPlaying.value = false
+                    stopProgressPolling()
+                    println("[DesktopAudioPlayer] VLC state: ERROR")
+                }
+            })
+
+            mediaPlayerFactory = factory
+            mediaPlayer = player
+            _isVlcAvailable.value = true
+            println("[DesktopAudioPlayer] LibVLC initialized successfully")
         } catch (e: Throwable) {
-            println("[DesktopAudioPlayer] VLC initialization error: ${e.message}")
+            println("[DesktopAudioPlayer] VLC initialization failed: ${e.message}")
             _isVlcAvailable.value = false
+            mediaPlayer = null
+            mediaPlayerFactory = null
         }
     }
 
     fun play(streamUrl: String) {
         val player = mediaPlayer
         if (player != null) {
-            println("[DesktopAudioPlayer] Playing stream: ${streamUrl.take(70)}...")
             player.media().play(streamUrl)
             _isPlaying.value = true
         } else {
-            println("[DesktopAudioPlayer] MediaPlayer is null, falling back to simulated mode")
-            simulatePlayback()
+            println("[DesktopAudioPlayer] Cannot play stream: LibVLC is not available")
+            _isPlaying.value = false
         }
     }
 
     fun togglePlayPause() {
-        val player = mediaPlayer
-        if (player != null) {
-            if (player.status().isPlaying) {
-                player.controls().pause()
-            } else {
-                player.controls().play()
-            }
+        val player = mediaPlayer ?: return
+        if (player.status().isPlaying) {
+            player.controls().pause()
         } else {
-            _isPlaying.value = !_isPlaying.value
+            player.controls().play()
         }
     }
 
@@ -134,10 +154,20 @@ class DesktopAudioPlayer(
         _positionMs.value = positionMs
     }
 
+    fun seekBy(deltaMs: Long) {
+        val maxDuration = _durationMs.value.coerceAtLeast(0L)
+        val target = (_positionMs.value + deltaMs).coerceIn(0L, if (maxDuration > 0) maxDuration else Long.MAX_VALUE)
+        seekTo(target)
+    }
+
     fun setVolume(volumeLevel: Int) {
         val clamped = volumeLevel.coerceIn(0, 100)
         mediaPlayer?.audio()?.setVolume(clamped)
         _volume.value = clamped
+    }
+
+    fun adjustVolume(delta: Int) {
+        setVolume(_volume.value + delta)
     }
 
     private fun startProgressPolling() {
@@ -162,11 +192,6 @@ class DesktopAudioPlayer(
     private fun stopProgressPolling() {
         progressPollingJob?.cancel()
         progressPollingJob = null
-    }
-
-    private fun simulatePlayback() {
-        _isPlaying.value = true
-        startProgressPolling()
     }
 
     fun release() {
